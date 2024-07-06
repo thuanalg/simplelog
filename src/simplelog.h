@@ -88,44 +88,23 @@ spl_mutex_unlock(__mtx__); spl_rel_sem(spl_get_sem());}
 #define		SPL_LOG_ERROR				90
 #define		SPL_LOG_FATAL				100
 
-//	typedef struct __GENERIC_DTA__ {
-//		int total;
-//		int pc; //Point to the current
-//		int pl; //Point to the last
-//		char data[0];
-//	} generic_dta_st;
-//	typedef struct __SIMPLE_LOG_ST__ {
-//		int llevel;
-//		char folder[1024];
-//		char off; //Must be sync
-//
-//		void* mtx; //Need to close handle
-//		void* mtx_off; //Need to close handle
-//		void* sem_rwfile; //Need to close handle
-//		void* sem_off; //Need to close handle
-//
-//		void* lc_time; //Need to sync, free
-//		void* fp; //Need to close
-//		generic_dta_st* buf; //Must be sync, free
-//	} SIMPLE_LOG_ST;
 	
-	DLL_API_SIMPLE_LOG int					spl_set_log_levwel(int val);
-	DLL_API_SIMPLE_LOG int					spl_get_log_levwel();
-	DLL_API_SIMPLE_LOG int					spl_init_log(char *path);
-	DLL_API_SIMPLE_LOG int					spl_finish_log();
-	DLL_API_SIMPLE_LOG int					spl_fmt_now(char* fmtt, int len);
-	DLL_API_SIMPLE_LOG int					spl_fmmt_now(char* fmtt, int len);
-	DLL_API_SIMPLE_LOG int					spl_mutex_lock(void* mtx);
-	DLL_API_SIMPLE_LOG int					spl_mutex_unlock(void* mtx);
-	DLL_API_SIMPLE_LOG int					spl_set_off(int );
-	DLL_API_SIMPLE_LOG int					spl_get_off();
-	DLL_API_SIMPLE_LOG void*				spl_get_mtx();
-	DLL_API_SIMPLE_LOG void*				spl_get_sem();
-//	DLL_API_SIMPLE_LOG SIMPLE_LOG_ST*		spl_get_main_obj();
-	DLL_API_SIMPLE_LOG LLU					spl_get_threadid();
-	DLL_API_SIMPLE_LOG int					spl_rel_sem(void* sem);
-	DLL_API_SIMPLE_LOG const char *			spl_get_text(int lev);
-	DLL_API_SIMPLE_LOG char *				spl_get_buf(int* n, int** ppl);
+DLL_API_SIMPLE_LOG int					spl_set_log_levwel(int val);
+DLL_API_SIMPLE_LOG int					spl_get_log_levwel();
+DLL_API_SIMPLE_LOG int					spl_init_log(char *path);
+DLL_API_SIMPLE_LOG int					spl_finish_log();
+DLL_API_SIMPLE_LOG int					spl_fmt_now(char* fmtt, int len);
+DLL_API_SIMPLE_LOG int					spl_fmmt_now(char* fmtt, int len);
+DLL_API_SIMPLE_LOG int					spl_mutex_lock(void* mtx);
+DLL_API_SIMPLE_LOG int					spl_mutex_unlock(void* mtx);
+DLL_API_SIMPLE_LOG int					spl_set_off(int );
+DLL_API_SIMPLE_LOG int					spl_get_off();
+DLL_API_SIMPLE_LOG void*				spl_get_mtx();
+DLL_API_SIMPLE_LOG void*				spl_get_sem();
+DLL_API_SIMPLE_LOG LLU					spl_get_threadid();
+DLL_API_SIMPLE_LOG int					spl_rel_sem(void* sem);
+DLL_API_SIMPLE_LOG const char *			spl_get_text(int lev);
+DLL_API_SIMPLE_LOG char *				spl_get_buf(int* n, int** ppl);
 
 #ifdef __cplusplus
 }
