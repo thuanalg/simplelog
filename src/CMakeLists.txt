@@ -1,6 +1,6 @@
 # Add main.cpp file of the project root directory as a source file
 project(simplelog)
-set(SOURCE_LIB_FILES simplelog.c simplelog.h)
+set(SOURCE_LIB_FILES simplelog.c simplelog.h simplelog_config.h)
 set(SOURCE_BIN_FILES_CPP main.c)
 
 # Add executable target with source files listed in SOURCE_FILES variable

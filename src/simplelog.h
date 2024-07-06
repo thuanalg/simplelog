@@ -1,13 +1,16 @@
-#ifndef ___MYSIMPLE_LOG__
-#define ___MYSIMPLE_LOG__
+#ifndef ___SIMPLE_LOG__
+#define ___SIMPLE_LOG__
 #include <stdio.h>
+#include "simplelog_config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define LLU				unsigned long long
 
-#ifndef ______MYSIMPLE_STATIC_LOG__
+
+#ifndef __SIMPLE_STATIC_LOG__
 	#ifdef EXPORT_DLL_API_SIMPLE_LOG
 		#define DLL_API_SIMPLE_LOG		__declspec(dllexport)
 	#else
