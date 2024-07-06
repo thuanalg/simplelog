@@ -55,7 +55,7 @@ extern "C" {
 	} SPL_LOG_ERROR;
 
 
-#define spl_console_log(___fmttt___, ...)		{char buf[32];spl_fmmt_now(buf, 32);\
+#define spl_console_log(___fmttt___, ...)		{char buf[1024];spl_fmmt_now(buf, 1024);\
 fprintf(stdout, "[%s] "__FILE_LINE_SIMPLELOG__" "___fmttt___"\n" , buf, __FUNCTION__, __LINE__, spl_get_threadid(), ##__VA_ARGS__);}
 
 

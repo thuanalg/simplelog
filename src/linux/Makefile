@@ -1,15 +1,13 @@
 target=libsimplelog.so
-debugFlag=-g -fPIC -shared -o
-releaseFlag=-fPIC -shared -o 
+debugFlag=-g -fPIC -shared 
+releaseFlag=-fPIC -shared
 src=../simplelog.c ../simplelog.h ../simplelog_config.h
 
 debug:
-	echo "debug"
-	gcc ${debugFlag} ${target} ${src} 
+	gcc ${debugFlag} -o ${target} ${src} 
 
 release:
-	echo "release"
-	gcc ${releaseFlag} ${target} ${src} 
+	gcc ${releaseFlag} -o ${target} ${src} 
 
 clean:
 	rm -rf ${target}
