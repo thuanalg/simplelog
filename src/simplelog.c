@@ -1,6 +1,10 @@
 #include "simplelog.h"
 #include <stdio.h>
-#include <Windows.h>
+#ifndef UNIX_LINUX
+	#include <Windows.h>
+#else
+	#include <pthread.h>
+#endif
 #include <time.h>
 //========================================================================================
 
