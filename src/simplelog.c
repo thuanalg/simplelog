@@ -115,14 +115,14 @@ int spl_local_time_now(spl_local_time_st*stt) {
 #ifndef UNIX_LINUX
 		SYSTEMTIME lt;
 		GetLocalTime(&lt);
-		stt->year = lt.wYear;
-		stt->month = lt.wMonth;
-		stt->day = lt.wDay;
+		stt->year = (unsigned int) lt.wYear;
+		stt->month = (unsigned char)lt.wMonth;
+		stt->day = (unsigned char)lt.wDay;
 
-		stt->hour = lt.wHour;
-		stt->minute = lt.wMinute;
-		stt->sec = lt.wSecond;
-		stt->ms = lt.wMilliseconds;
+		stt->hour = (unsigned char)lt.wHour;
+		stt->minute = (unsigned char)lt.wMinute;
+		stt->sec = (unsigned char)lt.wSecond;
+		stt->ms = (unsigned int)lt.wMilliseconds;
 #else
 // https://linux.die.net/man/3/localtime
 // https://linux.die.net/man/3/clock_gettime
