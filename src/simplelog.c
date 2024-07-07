@@ -5,12 +5,17 @@
 #include <time.h>
 #ifndef UNIX_LINUX
 	#include <Windows.h>
+#define YEAR_PADDING				0
+#define MONTHP_PADDING				0
 #else
 	#include <sys/types.h>
 	#include <sys/stat.h>
 	#include <pthread.h>
 	#include <semaphore.h>
 	#include <unistd.h>
+
+	#define YEAR_PADDING				1900
+	#define MONTHP_PADDING				1
 #endif
 
 //========================================================================================
@@ -131,6 +136,7 @@ int spl_local_time_now(spl_local_time_st*stt) {
 			break;
 		}
 		stt->year = lt->tm_year;
+		//fprintf(stdout, "\n==========year: %d\n", stt->year);
 		stt->month = lt->tm_mon;
 		stt->day = lt->tm_mday;
 
@@ -453,16 +459,10 @@ int spl_verify_folder(char* folder) {
 //========================================================================================
 int spl_get_fname_now(char* name) {
 	int ret = 0;
-	//spl_local_time_st st, lt;
 	spl_local_time_st lt;
-	//GetSystemTime(&st);
-	//GetLocalTime(&lt);
 	spl_local_time_now(&lt);
-
-	//spl_console_log("The system time is: %02d:%02d\n", st.wHour, st.wMinute);
-	//spl_console_log(" The local time is: %02d:%02d\n", lt.wHour, lt.wMinute);
 	if (name) {
-		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.year, lt.month, lt.day);
+		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.year + YEAR_PADDING, lt.month + MONTHP_PADDING, lt.day);
 	}
 	return ret;
 }
@@ -501,6 +501,7 @@ void* spl_written_thread_routine(void* lpParam)
 #else
 			sem_wait((sem_t*)t->sem_rwfile);
 #endif
+			spl_console_log("--Detect--\n");
 			off = spl_get_off();
 			if (off) {
 				break;
@@ -631,7 +632,7 @@ int spl_fmt_now(char* fmtt, int len) {
 			spl_mutex_unlock(__simple_log_static__.mtx);
 		} while (0);
 		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year, stt.month, stt.day);
+		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTHP_PADDING, stt.day);
 
 		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
 		n = snprintf(buff1, 20, "%0.2u:%0.2u:%0.2u", stt.hour, stt.minute, stt.sec);
@@ -666,7 +667,7 @@ int spl_fmmt_now(char* fmtt, int len) {
 		//memset(&st, 0, sizeof(st));
 		//GetSystemTime(&st);
 		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year, stt.month, stt.day);
+		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year + YEAR_PADDING, stt.month + MONTHP_PADDING, stt.day);
 
 		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
 		n = snprintf(buff1, 20, "%0.2d:%0.2d:%0.2d", stt.hour, stt.minute, stt.sec);
@@ -885,6 +886,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 	int result = 0;
 	//char tmp[1024];
 	char path[1024];
+	
 	do {
 		if (!folder) {
 			ret = SPL_LOG_CHECK_FOLDER_NULL_ERROR;
@@ -908,7 +910,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year);
+		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year + YEAR_PADDING);
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -917,7 +919,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year, (int) lctime->month);
+		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int) lctime->month + MONTHP_PADDING);
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -928,9 +930,47 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 		}
 #else
 	//https://linux.die.net/man/3/mkdir
-		result = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	//https://linux.die.net/man/2/stat
+		int err = 0;
+		struct stat buf;
+		memset(&buf, 0, sizeof(buf));
+		err = stat(path, &buf);
+		if (err) {
+			ret = SPL_LOG_STAT_FOLDER_ERROR;
+			break;
+		}
+		if (!S_ISDIR(buf.st_mode)) {
+			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (err) {
+				ret = SPL_LOG_CHECK_FOLDER_ERROR;
+				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
+				break;
+			}
+		}
+		memset(&buf, 0, sizeof(buf));
+		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year + YEAR_PADDING);
+		err = stat(path, &buf);
+		if (!S_ISDIR(buf.st_mode)) {
+			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (err) {
+				ret = SPL_LOG_CHECK_FOLDER_YEAR_ERROR;
+				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
+				break;
+			}
+		}
+		memset(&buf, 0, sizeof(buf));
+		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTHP_PADDING);
+		err = stat(path, &buf);
+		if (!S_ISDIR(buf.st_mode)) {
+			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (err) {
+				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
+				ret = SPL_LOG_CHECK_FILE_YEAR_ERROR;
+				break;
+			}
+		}
 #endif
-		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year, (int)lctime->month);
+		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTHP_PADDING);
 	} while (0);
 	return ret;
 }
