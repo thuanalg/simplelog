@@ -107,6 +107,31 @@ int spl_local_time_now(spl_local_time_st*stt) {
 		stt->sec = lt.wSecond;
 		stt->ms = lt.wMilliseconds;
 #else
+// https://linux.die.net/man/3/localtime
+// https://linux.die.net/man/3/clock_gettime
+		struct tm* lt;
+		struct timespec nanosec;
+		time_t t = time(0);
+		lt = localtime(&t);
+		if (!lt) {
+			ret = SPL_LOG_TIME_NULL_ERROR;
+			break;
+		}
+		//No need freeing, 
+		//https://stackoverflow.com/questions/35031647/do-i-need-to-free-the-returned-pointer-from-localtime-function
+		ret = clock_gettime(CLOCK_REALTIME, &nanosec);
+		if (ret) {
+			ret = SPL_LOG_TIME_NANO_NULL_ERROR;
+			break;
+		}
+		stt->year = lt.tm_year;
+		stt->month = lt.tm_mon;
+		stt->day = lt.tm_mday;
+
+		stt->hour = lt.tm_hour;
+		stt->minute = lt.tm_min;
+		stt->sec = lt.tm_sec;
+		stt->ms = (nanosec.tv_nsec/1000);
 #endif
 	} while (0);
 	return ret;
@@ -415,14 +440,16 @@ int spl_verify_folder(char* folder) {
 //========================================================================================
 int spl_get_fname_now(char* name) {
 	int ret = 0;
-	SYSTEMTIME st, lt;
-	GetSystemTime(&st);
-	GetLocalTime(&lt);
+	//spl_local_time_st st, lt;
+	spl_local_time_st lt;
+	//GetSystemTime(&st);
+	//GetLocalTime(&lt);
+	spl_local_time_now(&lt);
 
 	//spl_console_log("The system time is: %02d:%02d\n", st.wHour, st.wMinute);
 	//spl_console_log(" The local time is: %02d:%02d\n", lt.wHour, lt.wMinute);
 	if (name) {
-		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.wYear, lt.wMonth, lt.wDay);
+		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.year, lt.month, lt.day);
 	}
 	return ret;
 }
