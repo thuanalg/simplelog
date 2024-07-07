@@ -34,6 +34,8 @@ else {spl_console_log("Malloc: error.\n");}}
 #define				SPLOG_LEVEL						"level="
 #define				SPLOG_BUFF_SIZE					"buffsize="
 #define				SPLOG_FILE_SIZE					"filesize="
+#define				SPLOG_END_CFG					"end_configuring="
+
 #define				SPL_TEXT_UNKNOWN				"SPL_UNKNOWN"
 #define				SPL_TEXT_DEBUG					"SPL_DEBUG"
 #define				SPL_TEXT_INFO					"SPL_INFO"
@@ -79,10 +81,14 @@ typedef struct __SIMPLE_LOG_ST__ {
 
 
 ////========================================================================================
-static const char*				__splog_pathfolder[]		= { SPLOG_PATHFOLDR, SPLOG_LEVEL, SPLOG_BUFF_SIZE, SPLOG_FILE_SIZE, 0 };
+static const char*				__splog_pathfolder[]		= { SPLOG_PATHFOLDR, 
+																SPLOG_LEVEL, 
+																SPLOG_BUFF_SIZE, 
+																SPLOG_FILE_SIZE, 
+																SPLOG_END_CFG,0 };
 static	SIMPLE_LOG_ST			__simple_log_static__;;
 
-static int				spl_init_log_parse(char* buff, char* key);
+static int				spl_init_log_parse(char* buff, char* key, char *);
 static void*			spl_mutex_create();
 static void*			spl_sem_create(int ini);
 static int				spl_verify_folder(char* folder);
@@ -195,7 +201,7 @@ int	spl_get_off() {
 }
 //========================================================================================
 
-int	spl_init_log_parse(char* buff, char *key) {
+int	spl_init_log_parse(char* buff, char *key, char *isEnd) {
 	int ret = SPL_NO_ERROR;
 	do {
 		if (strcmp(key, SPLOG_PATHFOLDR) == 0) {
@@ -247,6 +253,15 @@ int	spl_init_log_parse(char* buff, char *key) {
 				break;
 			}
 			__simple_log_static__.filesize = n;
+			spl_console_log("__simple_log_static__.filesize: %d.\n", __simple_log_static__.filesize);
+			break;
+		}
+		if (strcmp(key, SPLOG_END_CFG) == 0) {
+			spl_console_log("End configuration.\n");
+			if (isEnd) {
+				*isEnd = 1;
+			}
+			break;
 		}
 	} while (0);
 	return ret;
@@ -259,6 +274,7 @@ int	spl_init_log( char *pathcfg) {
 	int count = 0;
 	char buf[1024];
 	void* obj = 0;
+	char isEnd = 0;
 	do {
 		memset(buf, 0, sizeof(buf));
 		fp = fopen(pathcfg, "r");
@@ -288,7 +304,7 @@ int	spl_init_log( char *pathcfg) {
 						int k = strlen(node);
 						char* p = (buf + k);
 						spl_console_log("Find out the keyword: [%s] value [%s].", node, p);
-						ret = spl_init_log_parse(p, node);
+						ret = spl_init_log_parse(p, node, &isEnd);
 						break;
 					}
 					j++;
@@ -299,11 +315,18 @@ int	spl_init_log( char *pathcfg) {
 				}			
 				count = 0;
 				memset(buf, 0, sizeof(buf));
+
+				if (isEnd) {
+					break;
+				}
 				if (c == EOF) {
 					break;
 				}
 				continue;
 				
+			}
+			if (isEnd) {
+				break;
 			}
 			if (c == EOF) {
 				break;
@@ -409,6 +432,9 @@ int spl_mutex_lock(void* obj) {
 		ret = pthread_mutex_lock((pthread_mutex_t*)obj);
 #endif
 	} while (0);
+	if (ret) {
+		spl_console_log("spl_mutex_lock err: %d\n", ret);
+	}
 	return ret;
 }
 //========================================================================================
@@ -432,6 +458,9 @@ int spl_mutex_unlock(void* obj) {
 		ret = pthread_mutex_unlock((pthread_mutex_t*)obj);
 #endif
 	} while (0);
+	if (ret) {
+		spl_console_log("pthread_mutex_unlock err: %d\n", ret);
+	}
 	return ret;
 }
 //========================================================================================
@@ -501,14 +530,14 @@ void* spl_written_thread_routine(void* lpParam)
 #else
 			sem_wait((sem_t*)t->sem_rwfile);
 #endif
-			spl_console_log("--Detect--\n");
+			//spl_console_log("--Detect--\n");
 			off = spl_get_off();
 			if (off) {
 				break;
 			}
 			ret = spl_gen_file(t, &sz, t->filesize, &(t->index));
 			if (ret) {
-				//Log err
+				spl_console_log("--Detect continue --\n");
 				continue;
 			}
 			spl_mutex_lock(t->mtx);
@@ -621,11 +650,13 @@ int spl_fmt_now(char* fmtt, int len) {
 			do {
 
 				if (!pre_tnow) {
-					_delta = 0;
+					//_delta = 0;
 					pre_tnow = _tnow;
 				}
 				else {
-					_delta = _tnow - pre_tnow;
+					if (_tnow > pre_tnow) {
+						_delta = _tnow - pre_tnow;
+					}
 				}
 				pre_tnow = _tnow;
 			} while (0);
@@ -851,7 +882,8 @@ const char* spl_get_text(int lev) {
 }
 //========================================================================================
 int spl_finish_log() {
-	int ret = 0;
+	int ret = 0; 
+	int err = 0;
 	spl_set_off(1);
 #ifndef UNIX_LINUX
 	CloseHandle(__simple_log_static__.mtx);
@@ -861,6 +893,34 @@ int spl_finish_log() {
 #else
 //https://linux.die.net/man/3/sem_destroy
 //https://linux.die.net/man/3/pthread_mutex_init
+	err = pthread_mutex_destroy(__simple_log_static__.mtx);
+	if (err) {
+		fprintf(stdout, "pthread_mutex_destroy mtx error: %d. \n", err);
+	}
+	else {
+		fprintf(stdout, "pthread_mutex_destroy mtx DONE. \n");
+	}
+	err = pthread_mutex_destroy(__simple_log_static__.mtx_off);
+	if (err) {
+		fprintf(stdout, "pthread_mutex_destroy mtx_off error: %d. \n", err);
+	}
+	else {
+		fprintf(stdout, "pthread_mutex_destroy mtx_off DONE. \n");
+	}
+	err = sem_destroy(__simple_log_static__.sem_rwfile);
+	if (err) {
+		fprintf(stdout, "sem_destroy sem_rwfile: DONE.\n");
+	}
+	else {
+		fprintf(stdout, "sem_destroy sem_rwfile DONE. \n");
+	}
+	err = sem_destroy(__simple_log_static__.sem_off);
+	if (err) {
+		fprintf(stdout, "sem_destroy sem_off error: %d. \n", err);
+	}
+	else {
+		fprintf(stdout, "sem_destroy sem_off: DONE.\n");
+	}
 #endif
 	memset(&__simple_log_static__, 0, sizeof(__simple_log_static__));
 	return ret;
