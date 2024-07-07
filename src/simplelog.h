@@ -9,19 +9,27 @@ extern "C" {
 
 #define LLU				unsigned long long
 
-
-#ifndef __SIMPLE_STATIC_LOG__
-	#ifdef EXPORT_DLL_API_SIMPLE_LOG
-		#define DLL_API_SIMPLE_LOG		__declspec(dllexport)
+#ifndef  UNIX_LINUX
+	#ifndef __SIMPLE_STATIC_LOG__
+		#ifdef EXPORT_DLL_API_SIMPLE_LOG
+			#define DLL_API_SIMPLE_LOG		__declspec(dllexport)
+		#else
+			#define DLL_API_SIMPLE_LOG		__declspec(dllimport)
+		#endif
 	#else
-		#define DLL_API_SIMPLE_LOG		__declspec(dllimport)
+	#define DLL_API_SIMPLE_LOG
 	#endif
 #else
 	#define DLL_API_SIMPLE_LOG
-#endif
+#endif // ! UNIX_LINUX
 
 #ifndef __SIMPLE_LOG_PLATFORM__
-	#define				__SIMPLE_LOG_PLATFORM__							"[WIN32_MSVC]"
+	#ifndef  UNIX_LINUX
+		#define				__SIMPLE_LOG_PLATFORM__							"[WIN32_MSVC]"
+	#else
+		#define				__SIMPLE_LOG_PLATFORM__							"[GNU-GCC]"
+	#endif
+	
 #endif // !__PLAT
 
 #ifndef __FILE_LINE_SIMPLELOG__

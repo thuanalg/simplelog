@@ -1,12 +1,18 @@
 #include "simplelog.h"
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
 #ifndef UNIX_LINUX
 	#include <Windows.h>
 #else
+	#include <sys/types.h>
+	#include <sys/stat.h>
 	#include <pthread.h>
 	#include <semaphore.h>
+	#include <unistd.h>
 #endif
-#include <time.h>
+
 //========================================================================================
 
 #define spl_malloc(__nn__, __obj__) { (__obj__) = malloc(__nn__); if(__obj__) \
@@ -80,7 +86,7 @@ static int				spl_gen_file(SIMPLE_LOG_ST* t, int *n, int limit, int *);
 static int				spl_get_fname_now(char* name);
 static int				spl_get_fname_now(char* name);
 static int				spl_standardize_path(char* fname);
-static int				spl_folder_sup(char* folder,  SYSTEMTIME* lctime, char *year_month);
+static int				spl_folder_sup(char* folder, spl_local_time_st* lctime, char *year_month);
 static int				spl_local_time_now(spl_local_time_st*st_time);
 #ifndef UNIX_LINUX
 static DWORD WINAPI		spl_written_thread_routine(LPVOID lpParam);
@@ -124,14 +130,14 @@ int spl_local_time_now(spl_local_time_st*stt) {
 			ret = SPL_LOG_TIME_NANO_NULL_ERROR;
 			break;
 		}
-		stt->year = lt.tm_year;
-		stt->month = lt.tm_mon;
-		stt->day = lt.tm_mday;
+		stt->year = lt->tm_year;
+		stt->month = lt->tm_mon;
+		stt->day = lt->tm_mday;
 
-		stt->hour = lt.tm_hour;
-		stt->minute = lt.tm_min;
-		stt->sec = lt.tm_sec;
-		stt->ms = (nanosec.tv_nsec/1000);
+		stt->hour = lt->tm_hour;
+		stt->minute = lt->tm_min;
+		stt->sec = lt->tm_sec;
+		stt->ms = (nanosec.tv_nsec/1000000);
 #endif
 	} while (0);
 	return ret;
@@ -161,7 +167,12 @@ int	spl_set_off(int isoff) {
 	
 	if (isoff) {
 		spl_rel_sem(__simple_log_static__.sem_rwfile);
+#ifndef UNIX_LINUX
 		DWORD errCode = WaitForSingleObject(__simple_log_static__.sem_off, 3 * 1000);
+		//spl_console_log("------- errCode: %d\n", (int)errCode);
+#else
+		int errCode = sem_wait(__simple_log_static__.sem_off);
+#endif
 		spl_console_log("------- errCode: %d\n", (int)errCode);
 	}
 	return ret;
@@ -375,13 +386,14 @@ void* spl_sem_create(int ini) {
 int spl_mutex_lock(void* obj) {
 //int pthread_mutex_lock(pthread_mutex_t *mutex);
 	int ret = 0;
-	DWORD err = 0;
+	
 	do {
 		if (!obj) {
 			ret = SPL_LOG_MUTEX_NULL_ERROR;
 			break;
 		}
 #ifndef UNIX_LINUX
+		DWORD err = 0;
 		err = WaitForSingleObject(obj, INFINITE);
 		if (err != WAIT_OBJECT_0) {
 			ret = 1;
@@ -397,13 +409,14 @@ int spl_mutex_lock(void* obj) {
 int spl_mutex_unlock(void* obj) {
 //int pthread_mutex_unlock(pthread_mutex_t *mutex);
 	int ret = 0;
-	DWORD done = 0;
+	
 	do {
 		if (!obj) {
 			ret = SPL_LOG_MUTEX_NULL_ERROR;
 			break;
 		}
 #ifndef UNIX_LINUX
+		DWORD done = 0;
 		done = ReleaseMutex(obj);
 		if (!done) {
 			ret = 1;
@@ -745,7 +758,7 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 		if (!renew) {
 			break;
 		}
-		memcpy(t->lc_time, &lt, sizeof(SYSTEMTIME));
+		memcpy(t->lc_time, &lt, sizeof(spl_local_time_st));
 		spl_get_fname_now(fmt_file_name);
 		//snprintf(path, 1024, SPL_FILE_NAME_FMT, t->folder, *index, fmt_file_name);
 		ret = spl_folder_sup(t->folder, t->lc_time, yearmonth);
@@ -886,6 +899,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 			break;
 		}
 		snprintf(path, 1024, "%s", folder);
+#ifndef UNIX_LINUX
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -912,6 +926,10 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 				break;
 			}
 		}
+#else
+	//https://linux.die.net/man/3/mkdir
+		result = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+#endif
 		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year, (int)lctime->month);
 	} while (0);
 	return ret;
