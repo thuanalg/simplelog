@@ -527,14 +527,24 @@ void* spl_written_thread_routine(void* lpParam)
 //========================================================================================
 int spl_simple_log_thread(SIMPLE_LOG_ST* t) {
 	int ret = 0;
-	HANDLE hd = 0;
-	DWORD thread_id = 0;
-	hd = CreateThread( NULL, 0, spl_written_thread_routine, t, 0, &thread_id);
 	do {
+#ifndef UNIX_LINUX
+		HANDLE hd = 0;
+		DWORD thread_id = 0;
+		hd = CreateThread(NULL, 0, spl_written_thread_routine, t, 0, &thread_id);
 		if (!hd) {
 			ret = SPL_LOG_CREATE_THREAD_ERROR;
 			break;
 		}
+#else
+		pthread_t idd = 0;
+		int err = 0;
+		err = pthread_create(&idd, 0, spl_written_thread_routine , t);
+		if (err) {
+			ret = SPL_LOG_CREATE_THREAD_ERROR;
+			break;
+		}
+#endif
 	} while (0);
 	return ret;
 }
@@ -595,21 +605,33 @@ int spl_fmt_now(char* fmtt, int len) {
 //========================================================================================
 int spl_fmmt_now(char* fmtt, int len) {
 	int ret = 0;
+	spl_local_time_st stt;
+	char buff[20], buff1[20];
+	int n = 0; 
 	do {
 		if (!fmtt) {
 			ret = (int)SPL_LOG_FMT_NULL_ERROR;
 			break;
 		}
-		int n;
-		SYSTEMTIME st;
-		char buff[20], buff1[20];
+		memset(&stt, 0, sizeof(stt));
+		ret = spl_local_time_now(&stt);
+		if (ret) {
+			break;
+		}
+		
+		//SYSTEMTIME st;
+		
 		memset(buff, 0, 20);
 		memset(buff1, 0, 20);
-		memset(&st, 0, sizeof(st));
-		GetSystemTime(&st);
-		n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
-		n = snprintf(fmtt, len, "%s %s.%.3d", buff, buff1, (int)st.wMilliseconds);
+		//memset(&st, 0, sizeof(st));
+		//GetSystemTime(&st);
+		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
+		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year, stt.month, stt.day);
+
+		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
+		n = snprintf(buff1, 20, "%0.2d:%0.2d:%0.2d", stt.hour, stt.minute, stt.sec);
+
+		n = snprintf(fmtt, len, "%s %s.%.3d", buff, buff1, (int)stt.ms);
 	} while (0);
 	return ret;
 }
