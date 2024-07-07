@@ -4,6 +4,7 @@
 	#include <Windows.h>
 #else
 	#include <pthread.h>
+	#include <semaphore.h>
 #endif
 #include <time.h>
 //========================================================================================
@@ -37,6 +38,16 @@ typedef struct __GENERIC_DTA__ {
 	char data[0];
 } generic_dta_st;
 
+typedef struct __spl_local_time_st__ {
+	unsigned int year;
+	unsigned char month;
+	unsigned char day;
+	unsigned char hour;
+	unsigned char minute;
+	unsigned char sec;
+	unsigned int ms;
+} spl_local_time_st;
+
 typedef struct __SIMPLE_LOG_ST__ {
 		int llevel;
 		int filesize;
@@ -49,8 +60,8 @@ typedef struct __SIMPLE_LOG_ST__ {
 		void* sem_rwfile; //Need to close handle
 		void* sem_off; //Need to close handle
 
-		void* lc_time; //Need to sync, free
-		void* fp; //Need to close
+		spl_local_time_st* lc_time; //Need to sync, free
+		FILE* fp; //Need to close
 
 		generic_dta_st* buf; //Must be sync, free
 	} SIMPLE_LOG_ST;
@@ -70,7 +81,36 @@ static int				spl_get_fname_now(char* name);
 static int				spl_get_fname_now(char* name);
 static int				spl_standardize_path(char* fname);
 static int				spl_folder_sup(char* folder,  SYSTEMTIME* lctime, char *year_month);
+static int				spl_local_time_now(spl_local_time_st*st_time);
+#ifndef UNIX_LINUX
 static DWORD WINAPI		spl_written_thread_routine(LPVOID lpParam);
+#else
+static void*			spl_written_thread_routine(void*);
+#endif
+//========================================================================================
+int spl_local_time_now(spl_local_time_st*stt) {
+	int ret = 0;
+	do {
+		if (!stt) {
+			ret = SPL_LOG_ST_NAME_NULL_ERROR;
+			break;
+		}
+#ifndef UNIX_LINUX
+		SYSTEMTIME lt;
+		GetLocalTime(&lt);
+		stt->year = lt.wYear;
+		stt->month = lt.wMonth;
+		stt->day = lt.wDay;
+
+		stt->hour = lt.wHour;
+		stt->minute = lt.wMinute;
+		stt->sec = lt.wSecond;
+		stt->ms = lt.wMilliseconds;
+#else
+#endif
+	} while (0);
+	return ret;
+}
 //========================================================================================
 int spl_set_log_levwel(int val) {
 	//simple_log_levwel = val;
@@ -388,7 +428,12 @@ int spl_get_fname_now(char* name) {
 }
 #include <time.h>
 //========================================================================================
-DWORD WINAPI spl_written_thread_routine(LPVOID lpParam) {
+#ifndef UNIX_LINUX
+DWORD WINAPI spl_written_thread_routine(LPVOID lpParam)
+#else
+void* spl_written_thread_routine(void* lpParam)
+#endif
+{	
 	SIMPLE_LOG_ST* t = (SIMPLE_LOG_ST*)lpParam;
 	int ret = 0;
 	int off = 0;
@@ -411,7 +456,11 @@ DWORD WINAPI spl_written_thread_routine(LPVOID lpParam) {
 		}
 		spl_console_log("Mutex: 0x%p.\n", t->mtx);
 		while (1) {
+#ifndef UNIX_LINUX
 			WaitForSingleObject(t->sem_rwfile, INFINITE);
+#else
+			sem_wait((sem_t*)t->sem_rwfile);
+#endif
 			off = spl_get_off();
 			if (off) {
 				break;
@@ -492,25 +541,30 @@ int spl_simple_log_thread(SIMPLE_LOG_ST* t) {
 //========================================================================================
 int spl_fmt_now(char* fmtt, int len) {
 	int ret = 0;
+	spl_local_time_st stt;
 	static LLU pre_tnow = 0;
 	LLU _tnow = 0;
 	LLU _delta = 0;
+	int n = 0; 
+	char buff[20], buff1[20];
+	memset(buff, 0, 20);
+	memset(buff1, 0, 20);	
+
 	time_t t = time(0);
 	do {
+		memset(&stt, 0, sizeof(stt));
+		ret = spl_local_time_now(&stt);
+		if (ret) {
+			break;
+		}
 		if (!fmtt) {
 			ret = (int) SPL_LOG_FMT_NULL_ERROR;
 			break;
 		}
-		int n;
-		SYSTEMTIME st;
-		char buff[20], buff1[20];
-		memset(buff, 0, 20);
-		memset(buff1, 0, 20);
-		memset(&st, 0, sizeof(st));
-		GetSystemTime(&st);
+		
 		_tnow = t;
 		_tnow *= 1000;
-		_tnow += st.wMilliseconds;
+		_tnow += stt.ms;
 		do {
 			spl_mutex_lock(__simple_log_static__.mtx);
 			do {
@@ -526,9 +580,13 @@ int spl_fmt_now(char* fmtt, int len) {
 			} while (0);
 			spl_mutex_unlock(__simple_log_static__.mtx);
 		} while (0);
-		n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
-		n = snprintf(fmtt, len, "%s %s.%.3d (+%0.7llu)", buff, buff1, (int)st.wMilliseconds, _delta);
+		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
+		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year, stt.month, stt.day);
+
+		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
+		n = snprintf(buff1, 20, "%0.2u:%0.2u:%0.2u", stt.hour, stt.minute, stt.sec);
+
+		n = snprintf(fmtt, len, "%s %s.%.3u (+%0.7llu)", buff, buff1, (unsigned int)stt.ms, _delta);
 		//fprintf(stdout, "n: %d.\n\n", n);
 	} while (0);
 	return ret;
@@ -560,23 +618,29 @@ int spl_fmmt_now(char* fmtt, int len) {
 #define SPL_FILE_NAME_FMT			"%s\\%s\\%s_%0.8d.log"
 int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 	int ret = 0;
-	SYSTEMTIME lt,* plt = 0;;
-	GetLocalTime(&lt);
+	spl_local_time_st lt,* plt = 0;;
+	//GetLocalTime(&lt);
+	
 	int renew = 1;
 	char path[1024];
 	char fmt_file_name[64];
 	int ferr = 0;
 	char yearmonth[16];
+	
 	do {
+		ret = spl_local_time_now(&lt);
+		if (ret) {
+			break;
+		}
 		if (!(t->lc_time)) {
-			spl_malloc(sizeof(SYSTEMTIME), t->lc_time);
+			spl_malloc(sizeof(spl_local_time_st), t->lc_time);
 			if (!t->lc_time) {
 				ret = SPL_LOG_MEM_GEN_FILE_ERROR;
 				break;
 			}
-			memcpy(t->lc_time, &lt, sizeof(SYSTEMTIME));
+			memcpy(t->lc_time, &lt, sizeof(spl_local_time_st));
 		}
-		plt = (SYSTEMTIME*)t->lc_time;
+		plt = t->lc_time;
 		if (!t->fp) {
 			memset(path, 0, sizeof(path));
 			memset(fmt_file_name, 0, sizeof(fmt_file_name));
@@ -618,13 +682,13 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 				(*index)++;
 				break;
 			}
-			if (lt.wYear > plt->wYear) {
+			if (lt.year > plt->year) {
 				break;
 			}
-			if (lt.wMonth > plt->wMonth) {
+			if (lt.month > plt->month) {
 				break;
 			}
-			if (lt.wDay > plt->wDay) {
+			if (lt.day > plt->day) {
 				break;
 			}
 			renew = 0; 
@@ -754,7 +818,7 @@ char* spl_get_buf(int* n, int** ppl) {
 }
 //========================================================================================
 //https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createdirectorya
-int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
+int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 	int ret = 0;
 	int result = 0;
 	//char tmp[1024];
@@ -781,7 +845,7 @@ int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(path, 1024, "%s/%0.4d", folder, lctime->wYear);
+		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year);
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -790,7 +854,7 @@ int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, lctime->wYear, lctime->wMonth);
+		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year, (int) lctime->month);
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -799,7 +863,7 @@ int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->wYear, (int)lctime->wMonth);
+		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year, (int)lctime->month);
 	} while (0);
 	return ret;
 }
