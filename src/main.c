@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 		FILE* fp = 0;
 		Sleep(10 * 1000);
 		spllog(SPL_LOG_DEBUG, "%s", "\n<<-->>\n");
-		fp = fopen("D:\\z.en\\en.2022.07.08\\memory_leak\\Kenneth.H.Rosen\\Counting\\simplelog\\trigger.txt", "r");
+		fp = fopen("trigger.txt", "r");
 		if (fp) {
 			fclose(fp);
 			break;

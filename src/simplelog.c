@@ -279,13 +279,31 @@ int	spl_init_log( char *pathcfg) {
 //========================================================================================
 void* spl_mutex_create() {
 	void *ret = 0;
-	ret = CreateMutexA(0, 0, 0);
+	do {
+#ifndef UNIX_LINUX
+		ret = CreateMutexA(0, 0, 0);
+#else
+	//https://linux.die.net/man/3/pthread_mutex_init
+		ret = malloc(sizeof(pthread_mutex_t));
+		if (!ret) {
+			break;
+		}
+		memset(ret, 0, sizeof(pthread_mutex_t));
+		pthread_mutex_init(ret, 0);
+#endif // !UNIX_LINUX
+	} while (0);
 	return ret;
 }
 //========================================================================================
 void* spl_sem_create(int ini) {
 	void* ret = 0;
+#ifndef UNIX_LINUX
 	ret = CreateSemaphoreA(0, 0, ini, 0);
+#else
+	ret = malloc(sizeof(sem_t));
+	memset(ret, 0, sizeof(sem_t));
+	sem_init(ret, 0, 0);
+#endif // !UNIX_LINUX	
 	return ret;
 }
 //========================================================================================
@@ -295,14 +313,18 @@ int spl_mutex_lock(void* obj) {
 	DWORD err = 0;
 	do {
 		if (!obj) {
-			ret = 1;
+			ret = SPL_LOG_MUTEX_NULL_ERROR;
 			break;
 		}
+#ifndef UNIX_LINUX
 		err = WaitForSingleObject(obj, INFINITE);
 		if (err != WAIT_OBJECT_0) {
 			ret = 1;
 			break;
 		}
+#else
+		ret = pthread_mutex_lock((pthread_mutex_t*)obj);
+#endif
 	} while (0);
 	return ret;
 }
@@ -313,14 +335,18 @@ int spl_mutex_unlock(void* obj) {
 	DWORD done = 0;
 	do {
 		if (!obj) {
-			ret = 1;
+			ret = SPL_LOG_MUTEX_NULL_ERROR;
 			break;
 		}
+#ifndef UNIX_LINUX
 		done = ReleaseMutex(obj);
 		if (!done) {
 			ret = 1;
 			break;
 		}
+#else
+		ret = pthread_mutex_unlock((pthread_mutex_t*)obj);
+#endif
 	} while (0);
 	return ret;
 }
@@ -645,7 +671,11 @@ void* spl_get_sem() {
 }
 //========================================================================================
 LLU	spl_get_threadid() {
+#ifndef UNIX_LINUX
 	return (LLU)GetCurrentThreadId();
+#else
+	return (LLU)pthread_self();
+#endif
 }
 //========================================================================================
 int spl_rel_sem(void *sem) {
@@ -656,7 +686,11 @@ int spl_rel_sem(void *sem) {
 			ret = SPL_LOG_SEM_NULL_ERROR;
 			break;
 		}
+#ifndef UNIX_LINUX
 		ReleaseSemaphore(sem, 1, 0);
+#else
+		sem_post((sem_t*)sem);
+#endif // !UNIX_LINUX
 	} while (0);
 	return ret;
 }
@@ -692,10 +726,15 @@ const char* spl_get_text(int lev) {
 int spl_finish_log() {
 	int ret = 0;
 	spl_set_off(1);
+#ifndef UNIX_LINUX
 	CloseHandle(__simple_log_static__.mtx);
 	CloseHandle(__simple_log_static__.mtx_off);
 	CloseHandle(__simple_log_static__.sem_rwfile);
 	CloseHandle(__simple_log_static__.sem_off);
+#else
+//https://linux.die.net/man/3/sem_destroy
+//https://linux.die.net/man/3/pthread_mutex_init
+#endif
 	memset(&__simple_log_static__, 0, sizeof(__simple_log_static__));
 	return ret;
 }
