@@ -29,6 +29,8 @@ else {spl_console_log("Malloc: error.\n");}}
 #define FFCLOSE(fp, __n) { (__n) = fclose(fp); if(__n) {spl_console_log("Close FILE error code: %d.\n", (__n))};}
 #ifndef UNIX_LINUX
 	#define SPL_CloseHandle(__obj) { int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
+#else
+	#define SPL_sem_wait(__obj) 		sem_wait((sem_t*)(__obj))
 #endif
 //========================================================================================
 
@@ -91,7 +93,6 @@ static const char*				__splog_pathfolder[]		= { SPLOG_PATHFOLDR,
 static	SIMPLE_LOG_ST			__simple_log_static__;;
 
 static int				spl_init_log_parse(char* buff, char* key, char *);
-static void*			spl_mutex_create();
 static void*			spl_sem_create(int ini);
 static int				spl_verify_folder(char* folder);
 static int				spl_simple_log_thread(SIMPLE_LOG_ST* t);
@@ -184,7 +185,7 @@ int	spl_set_off(int isoff) {
 #ifndef UNIX_LINUX
 		DWORD errCode = WaitForSingleObject(__simple_log_static__.sem_off, 3 * 1000);
 #else
-		int errCode = sem_wait(__simple_log_static__.sem_off);
+		int errCode = SPL_sem_wait(__simple_log_static__.sem_off);
 #endif
 		spl_console_log("------- errCode: %d\n", (int)errCode);
 	}
@@ -529,7 +530,7 @@ void* spl_written_thread_routine(void* lpParam)
 #ifndef UNIX_LINUX
 			WaitForSingleObject(t->sem_rwfile, INFINITE);
 #else
-			sem_wait((sem_t*)t->sem_rwfile);
+			SPL_sem_wait(t->sem_rwfile);
 #endif
 			//spl_console_log("--Detect--\n");
 			off = spl_get_off();
@@ -905,31 +906,39 @@ int spl_finish_log() {
 //https://linux.die.net/man/3/pthread_mutex_init
 	err = pthread_mutex_destroy(__simple_log_static__.mtx);
 	if (err) {
-		fprintf(stdout, "pthread_mutex_destroy mtx error: %d. \n", err);
+		//fprintf(stdout, "pthread_mutex_destroy mtx error: %d. \n", err);
+		spl_console_log("pthread_mutex_destroy mtx error: %d. \n", err);
 	}
 	else {
-		fprintf(stdout, "pthread_mutex_destroy mtx DONE. \n");
+		//fprintf(stdout, "pthread_mutex_destroy mtx DONE. \n");
+		spl_console_log("pthread_mutex_destroy mtx DONE. \n");
 	}
 	err = pthread_mutex_destroy(__simple_log_static__.mtx_off);
 	if (err) {
-		fprintf(stdout, "pthread_mutex_destroy mtx_off error: %d. \n", err);
+		//fprintf(stdout, "pthread_mutex_destroy mtx_off error: %d. \n", err);
+		spl_console_log("pthread_mutex_destroy mtx_off error: %d. \n", err);
 	}
 	else {
-		fprintf(stdout, "pthread_mutex_destroy mtx_off DONE. \n");
+		//fprintf(stdout, "pthread_mutex_destroy mtx_off DONE. \n");
+		spl_console_log("pthread_mutex_destroy mtx_off DONE. \n");
 	}
 	err = sem_destroy(__simple_log_static__.sem_rwfile);
 	if (err) {
-		fprintf(stdout, "sem_destroy sem_rwfile: DONE.\n");
+		//fprintf(stdout, "sem_destroy sem_rwfile: DONE.\n");
+		spl_console_log("sem_destroy sem_rwfile: DONE.\n");
 	}
 	else {
-		fprintf(stdout, "sem_destroy sem_rwfile DONE. \n");
+		//fprintf(stdout, "sem_destroy sem_rwfile DONE. \n");
+		spl_console_log("sem_destroy sem_rwfile DONE. \n");
 	}
 	err = sem_destroy(__simple_log_static__.sem_off);
 	if (err) {
-		fprintf(stdout, "sem_destroy sem_off error: %d. \n", err);
+		//fprintf(stdout, "sem_destroy sem_off error: %d. \n", err);
+		spl_console_log("sem_destroy sem_off error: %d. \n", err);
 	}
 	else {
-		fprintf(stdout, "sem_destroy sem_off: DONE.\n");
+		//fprintf(stdout, "sem_destroy sem_off: DONE.\n");
+		spl_console_log("sem_destroy sem_off: DONE.\n");
 	}
 #endif
 	memset(&__simple_log_static__, 0, sizeof(__simple_log_static__));
@@ -956,6 +965,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 	int result = 0;
 	//char tmp[1024];
 	char path[1024];
+	memset(path, 0, sizeof(path));
 	
 	do {
 		if (!folder) {
@@ -1004,23 +1014,19 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 		int err = 0;
 		struct stat buf;
 		memset(&buf, 0, sizeof(buf));
-		err = stat(path, &buf);
-		if (err) {
-			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-			if (err) {
-				ret = SPL_LOG_CHECK_FOLDER_ERROR;
-				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
-				break;
-			}
-		}
+		stat(path, &buf);
 		if (!S_ISDIR(buf.st_mode)) {
 			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-			if (err) {
+			memset(&buf, 0, sizeof(buf));
+			stat(path, &buf);
+			if (!S_ISDIR(buf.st_mode)) {
 				ret = SPL_LOG_CHECK_FOLDER_ERROR;
 				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
 				break;
+				
 			}
 		}
+
 		memset(&buf, 0, sizeof(buf));
 		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year + YEAR_PADDING);
 		err = stat(path, &buf);

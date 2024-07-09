@@ -138,6 +138,8 @@ DLL_API_SIMPLE_LOG const char*
 	spl_get_text(int lev);
 DLL_API_SIMPLE_LOG char *								
 	spl_get_buf(int* n, int** ppl);
+DLL_API_SIMPLE_LOG 
+	void* spl_mutex_create();
 
 #ifdef __cplusplus
 }

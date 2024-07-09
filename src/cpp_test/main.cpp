@@ -9,21 +9,42 @@
 #else
 #	include <unistd.h>
 	#include <pthread.h>
-	void *win32_thread_routine(void* lpParam);
+	void *posix_thread_routine(void* lpParam);
 #endif // !UNIX_LINUX
 
 
 void dotest();
+void* main_mtx = 0;
+int off_process = 0;
+int set_off_process(int val) {
+	int ret = 0;
+	spl_mutex_lock(main_mtx);
+	do {
 
+	} while (0);
+	spl_mutex_unlock(main_mtx);
+	return ret;
+}
+
+int get_off_process() {
+	int ret = 0;
+	spl_mutex_lock(main_mtx);
+	do {
+		ret = off_process;
+	} while (0);
+	spl_mutex_unlock(main_mtx);
+	return ret;
+}
 int number = 2;
 int main(int argc, char* argv[]) {
 	int n = 0, ret = 0, i = 0;
 	if (argc > 1) {
 		n = sscanf(argv[1], "%d", &number);
 	}
+	main_mtx = spl_mutex_create();
 	spl_console_log("Main thread.\n");
 	char pathcfg[1024];
-	char* path = "simplelog.cfg";
+	char* path = (char *)"simplelog.cfg";
 	char nowfmt[64];
 	snprintf(pathcfg, 1024, path);
 	n = strlen(pathcfg);
@@ -33,6 +54,10 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	ret = spl_init_log(pathcfg);
+	if (ret) {
+		spl_console_log("spl_init_log ret: %d", ret);
+		exit(1);
+	}
 	spl_fmt_now(nowfmt, 64);
 	spllog(SPL_LOG_INFO, "%s", "\n<<-->>\n");
 	n = 0;
@@ -70,14 +95,15 @@ void dotest() {
 #else
 	pthread_t idd = 0;
 	for (i = 0; i < number; ++i) {
-		int err = pthread_create(&idd, 0, win32_thread_routine, 0);
+		int err = pthread_create(&idd, 0, posix_thread_routine, 0);
 	}
 #endif
 }
 
 #ifndef UNIX_LINUX
 DWORD WINAPI win32_thread_routine(LPVOID lpParam) {
-	while (1) {
+	int k = get_off_process();
+	while (!k) {
 		spllog(SPL_LOG_INFO, "test log: %llu", (LLU)time(0));
 		Sleep(1 * 1000);
 	}
@@ -85,7 +111,7 @@ DWORD WINAPI win32_thread_routine(LPVOID lpParam) {
 }
 #else
 
-void* win32_thread_routine(void* lpParam) {
+void* posix_thread_routine(void* lpParam) {
 	while (1) {
 		spllog(SPL_LOG_INFO, "test log: %llu", (LLU)time(0));
 		sleep(1);
