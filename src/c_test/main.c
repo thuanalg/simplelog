@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #ifndef UNIX_LINUX
 	#include <Windows.h>
 	DWORD WINAPI win32_thread_routine(LPVOID lpParam);
