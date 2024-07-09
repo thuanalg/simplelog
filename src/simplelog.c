@@ -6,7 +6,7 @@
 #ifndef UNIX_LINUX
 	#include <Windows.h>
 #define YEAR_PADDING				0
-#define MONTHP_PADDING				0
+#define MONTH_PADDING				0
 #else
 	#include <sys/types.h>
 	#include <sys/stat.h>
@@ -15,7 +15,7 @@
 	#include <unistd.h>
 
 	#define YEAR_PADDING				1900
-	#define MONTHP_PADDING				1
+	#define MONTH_PADDING				1
 #endif
 
 //========================================================================================
@@ -26,8 +26,10 @@ else {spl_console_log("Malloc: error.\n");}}
 
 #define spl_free(__obj__) { spl_console_log("Free: 0x:%p.\n", (__obj__)); free(__obj__); ; (__obj__) = 0;} 
 
-#define FFCLOSE(fp, __n) { (__n) = fclose(fp); if(__n) {spl_console_log("Close FILE ERRR: %d.\n", (__n))};}
-
+#define FFCLOSE(fp, __n) { (__n) = fclose(fp); if(__n) {spl_console_log("Close FILE error code: %d.\n", (__n))};}
+#ifndef UNIX_LINUX
+	#define SPL_CloseHandle(__obj) { int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
+#endif
 //========================================================================================
 
 #define				SPLOG_PATHFOLDR					"pathfoder="
@@ -181,7 +183,6 @@ int	spl_set_off(int isoff) {
 		spl_rel_sem(__simple_log_static__.sem_rwfile);
 #ifndef UNIX_LINUX
 		DWORD errCode = WaitForSingleObject(__simple_log_static__.sem_off, 3 * 1000);
-		//spl_console_log("------- errCode: %d\n", (int)errCode);
 #else
 		int errCode = sem_wait(__simple_log_static__.sem_off);
 #endif
@@ -491,7 +492,7 @@ int spl_get_fname_now(char* name) {
 	spl_local_time_st lt;
 	spl_local_time_now(&lt);
 	if (name) {
-		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.year + YEAR_PADDING, lt.month + MONTHP_PADDING, lt.day);
+		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.year + YEAR_PADDING, lt.month + MONTH_PADDING, lt.day);
 	}
 	return ret;
 }
@@ -537,7 +538,7 @@ void* spl_written_thread_routine(void* lpParam)
 			}
 			ret = spl_gen_file(t, &sz, t->filesize, &(t->index));
 			if (ret) {
-				spl_console_log("--Detect continue --\n");
+				spl_console_log("--spl_gen_file, ret: %d --\n", ret);
 				continue;
 			}
 			spl_mutex_lock(t->mtx);
@@ -663,7 +664,7 @@ int spl_fmt_now(char* fmtt, int len) {
 			spl_mutex_unlock(__simple_log_static__.mtx);
 		} while (0);
 		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTHP_PADDING, stt.day);
+		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
 
 		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
 		n = snprintf(buff1, 20, "%0.2u:%0.2u:%0.2u", stt.hour, stt.minute, stt.sec);
@@ -698,7 +699,7 @@ int spl_fmmt_now(char* fmtt, int len) {
 		//memset(&st, 0, sizeof(st));
 		//GetSystemTime(&st);
 		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year + YEAR_PADDING, stt.month + MONTHP_PADDING, stt.day);
+		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
 
 		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
 		n = snprintf(buff1, 20, "%0.2d:%0.2d:%0.2d", stt.hour, stt.minute, stt.sec);
@@ -724,6 +725,7 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 	do {
 		ret = spl_local_time_now(&lt);
 		if (ret) {
+			spl_console_log("spl_local_time_now: ret: %d.\n", ret);
 			break;
 		}
 		if (!(t->lc_time)) {
@@ -740,6 +742,10 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 			memset(fmt_file_name, 0, sizeof(fmt_file_name));
 			spl_get_fname_now(fmt_file_name);
 			ret = spl_folder_sup(t->folder, t->lc_time, yearmonth);
+			if (ret) {
+				spl_console_log("spl_folder_sup: ret: %d.\n", ret);
+				break;
+			}
 			do {
 				int cszize = 0; //current size
 				snprintf(path, 1024, SPL_FILE_NAME_FMT, t->folder, yearmonth, fmt_file_name, *index);
@@ -794,6 +800,10 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 		spl_get_fname_now(fmt_file_name);
 		//snprintf(path, 1024, SPL_FILE_NAME_FMT, t->folder, *index, fmt_file_name);
 		ret = spl_folder_sup(t->folder, t->lc_time, yearmonth);
+		if (ret) {
+			spl_console_log("spl_folder_sup: ret: %d.\n", ret);
+			break;
+		}
 		snprintf(path, 1024, SPL_FILE_NAME_FMT, t->folder, yearmonth, fmt_file_name, *index);
 
 		FFCLOSE(t->fp, ferr);
@@ -886,10 +896,10 @@ int spl_finish_log() {
 	int err = 0;
 	spl_set_off(1);
 #ifndef UNIX_LINUX
-	CloseHandle(__simple_log_static__.mtx);
-	CloseHandle(__simple_log_static__.mtx_off);
-	CloseHandle(__simple_log_static__.sem_rwfile);
-	CloseHandle(__simple_log_static__.sem_off);
+	SPL_CloseHandle(__simple_log_static__.mtx);
+	SPL_CloseHandle(__simple_log_static__.mtx_off);
+	SPL_CloseHandle(__simple_log_static__.sem_rwfile);
+	SPL_CloseHandle(__simple_log_static__.sem_off);
 #else
 //https://linux.die.net/man/3/sem_destroy
 //https://linux.die.net/man/3/pthread_mutex_init
@@ -979,7 +989,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int) lctime->month + MONTHP_PADDING);
+		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int) lctime->month + MONTH_PADDING);
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -996,8 +1006,12 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 		memset(&buf, 0, sizeof(buf));
 		err = stat(path, &buf);
 		if (err) {
-			ret = SPL_LOG_STAT_FOLDER_ERROR;
-			break;
+			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (err) {
+				ret = SPL_LOG_CHECK_FOLDER_ERROR;
+				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
+				break;
+			}
 		}
 		if (!S_ISDIR(buf.st_mode)) {
 			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -1019,7 +1033,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 			}
 		}
 		memset(&buf, 0, sizeof(buf));
-		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTHP_PADDING);
+		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
 		err = stat(path, &buf);
 		if (!S_ISDIR(buf.st_mode)) {
 			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -1030,7 +1044,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 			}
 		}
 #endif
-		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTHP_PADDING);
+		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
 	} while (0);
 	return ret;
 }

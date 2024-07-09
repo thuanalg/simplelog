@@ -13,12 +13,12 @@ add_library(simpleloglib SHARED ${SOURCE_LIB_FILES})
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS simple_example)
 
 include_directories(./)
-add_executable(simple_example ${SOURCE_BIN_FILES})
+add_executable(simple_c_example ${SOURCE_BIN_FILES})
 
 include_directories(./)
 add_executable(simple_cpp_example ${SOURCE_BINCPP_FILES})
 
-target_link_libraries(simple_example 
+target_link_libraries(simple_c_example 
 	simpleloglib
 )
 
