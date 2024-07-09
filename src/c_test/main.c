@@ -20,7 +20,7 @@ int set_off_process(int val) {
 	int ret = 0;
 	spl_mutex_lock(main_mtx);
 	do {
-	
+		off_process = val;
 	} while (0);
 	spl_mutex_unlock(main_mtx);
 	return ret;
@@ -80,8 +80,14 @@ int main(int argc, char* argv[]) {
 
 	}
 	spllog(SPL_LOG_INFO, "%s", "\n<<--->>\n");
-	spl_console_log("--Main close--\n");
+	
 	set_off_process(1);
+#ifndef UNIX_LINUX
+	Sleep(1000);
+#else
+	sleep(1);
+#endif
+	spl_console_log("--Main close--\n");
 	spl_finish_log();
 	return EXIT_SUCCESS;
 }
@@ -104,8 +110,13 @@ void dotest() {
 
 #ifndef UNIX_LINUX
 DWORD WINAPI win32_thread_routine(LPVOID lpParam) {
-	int k = get_off_process();
-	while (!k) {
+	int k =0;
+	//spl_console_log("--get_off_process: %d--\n", k);
+	while (1) {
+		k = get_off_process();
+		if (k) {
+			break;
+		}
 		spllog(SPL_LOG_INFO, "test log: %llu", (LLU)time(0));
 		Sleep(1 * 1000);
 	}

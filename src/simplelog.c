@@ -509,7 +509,7 @@ void* spl_written_thread_routine(void* lpParam)
 	int ret = 0;
 	int off = 0;
 	int ssfflush = 0;
-	static time_t tttime;
+	time_t tttime = 0;
 	time_t tnnow;
 	tnnow = time(0);
 	int n = 0;
@@ -561,7 +561,7 @@ void* spl_written_thread_routine(void* lpParam)
 			if (!tttime) {
 				tttime = tnnow;
 			}
-			if (tnnow > tttime + 1) {
+			if (tnnow > tttime) {
 				tttime = tnnow;
 				ssfflush = 1;
 			}
