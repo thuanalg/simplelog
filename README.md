@@ -1,4 +1,4 @@
-Please checkout and "README.html"
+Please checkout and take a look "README.html"
 
 
 1.    A C/C++ log is to support multithread.
