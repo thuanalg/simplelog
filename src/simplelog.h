@@ -76,12 +76,12 @@ fprintf(stdout, "[%s] "__FILE_LINE_SIMPLELOG__" "___fmttt___"\n" , buf, __FUNCTI
 
 
 
-#define __spl_log_buf__(___fmttt___, ...)	{int *__ppl = 0; char tnow[40]; int range=0; char* __p = 0; void *__mtx__ =  spl_get_mtx(); \
+#define __spl_log_buf__(___fmttt___, ...)	{int *__ppl = 0; char tnow[40]; int range=0; char* __p = 0; void *__mtx__ =  spl_get_mtx(); LLU thrid = spl_get_threadid();\
 int len = 0; spl_fmt_now(tnow, 40);\
 spl_mutex_lock(__mtx__);\
 __p = spl_get_buf(&range, &__ppl); if (__p && __ppl) { len = snprintf((__p + (*__ppl)), range, \
 "[%s] [tid: %llu] [%s:%d] "___fmttt___"\n\n", \
-tnow, spl_get_threadid(), __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+tnow, thrid, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
 if(len > 0) (*__ppl) += (len -1);}\
 spl_mutex_unlock(__mtx__); spl_rel_sem(spl_get_sem());}
 

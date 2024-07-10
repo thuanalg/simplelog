@@ -945,9 +945,8 @@ int spl_finish_log() {
 char* spl_get_buf(int* n, int** ppl) {
 	SIMPLE_LOG_ST* t = &__simple_log_static__;
 	char* ret = 0;
-	if (__simple_log_static__.buf);
-	if (n && ppl) {
-		if (t->buf) {
+	if (t->buf) {
+		if (n && ppl) {
 			*n = (t->buf->total > sizeof(generic_dta_st) + t->buf->pl) ? (t->buf->total - sizeof(generic_dta_st) - t->buf->pl) : 0;
 			ret = t->buf->data;
 			(*ppl) = &(t->buf->pl);
