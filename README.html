@@ -1,0 +1,52 @@
+<html>
+	<body>
+	<h2>1. For windows 32/64bit (did test on x86_64)
+		<table>
+			<tr>
+				<th>OS</th>
+				<th>Tool/SDK</th>		
+				<th>Steps</th>	
+				<th>Prerequiste </th>					
+			</tr>
+			<tr>
+				<td>Windows 10, 32 bits.</td>
+				<td>Microsoft Visual Studio 2022</td>		
+				<td>
+					<ol>
+						<li>Come <b>src</b> folder.</li>
+						<li>Run: <b>cmake -G "Visual Studio 17 2022" -A win32 -B ../build32</b>.<br>"<b>../build32</b>" is an output folder.</li>
+						<li>Move to the output folder "../build32" to build and run test.</li>
+						<br><image src="image/win32-00.png"></image>
+					</ol>
+				</td>
+				<td><b>
+					<ol>
+						<li>cmake</b>, however, you can add the files ( from <b>src</b>) manually/directly. </li>
+						<li>Visual Studio 2022 ( Community version or any.)</li>
+					</ol>
+				</td>				
+			</tr>	
+			<tr>
+				<td>Windows 10, 64 bits. </td>
+				<td>Microsoft Visual Studio 2022</td>		
+				<td>
+					<ol>
+						<li>Come <b>src</b> folder.</li>
+						<li>Run: <b>cmake -G "Visual Studio 17 2022" -B ../build64</b>.<br>"<b>../build64</b>" is an output folder.</li>
+						<li>Move to the output folder "../build64" to build and run test.</li>
+						<br><image src="image/win64-00.png"></image>
+					</ol>
+				</td>
+				<td><b>
+					<ol>
+						<li>cmake</b>, however, you can add the files ( from <b>src</b>) manually/directly. </li>
+						<li>Visual Studio 2022 ( Community version or any.)</li>
+					</ol>
+				</td>				
+			</tr>				
+		</table>
+	</h2>
+	<h2>2. For Linux 64 (did test on x86_64)
+	</h2>	
+	</body>
+</html>
