@@ -1,11 +1,23 @@
 #include "simplelog.h"
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
 #ifndef UNIX_LINUX
 	#include <Windows.h>
+#define YEAR_PADDING				0
+#define MONTH_PADDING				0
 #else
+	#include <sys/types.h>
+	#include <sys/stat.h>
 	#include <pthread.h>
+	#include <semaphore.h>
+	#include <unistd.h>
+
+	#define YEAR_PADDING				1900
+	#define MONTH_PADDING				1
 #endif
-#include <time.h>
+
 //========================================================================================
 
 #define spl_malloc(__nn__, __obj__) { (__obj__) = malloc(__nn__); if(__obj__) \
@@ -14,20 +26,26 @@ else {spl_console_log("Malloc: error.\n");}}
 
 #define spl_free(__obj__) { spl_console_log("Free: 0x:%p.\n", (__obj__)); free(__obj__); ; (__obj__) = 0;} 
 
-#define FFCLOSE(fp, __n) { (__n) = fclose(fp); if(__n) {spl_console_log("Close FILE ERRR: %d.\n", (__n))};}
-
+#define FFCLOSE(fp, __n) { (__n) = fclose(fp); if(__n) {spl_console_log("Close FILE error code: %d.\n", (__n))};}
+#ifndef UNIX_LINUX
+	#define SPL_CloseHandle(__obj) { int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
+#else
+	#define SPL_sem_wait(__obj) 		sem_wait((sem_t*)(__obj))
+#endif
 //========================================================================================
 
 #define				SPLOG_PATHFOLDR					"pathfoder="
 #define				SPLOG_LEVEL						"level="
 #define				SPLOG_BUFF_SIZE					"buffsize="
 #define				SPLOG_FILE_SIZE					"filesize="
-#define				SPL_TEXT_UNKNOWN				"SPL_UNKNOWN"
-#define				SPL_TEXT_DEBUG					"SPL_DEBUG"
-#define				SPL_TEXT_INFO					"SPL_INFO"
-#define				SPL_TEXT_WARN					"SPL_WARN"
-#define				SPL_TEXT_ERROR					"SPL_ERROR"
-#define				SPL_TEXT_FATAL					"SPL_FATAL"
+#define				SPLOG_END_CFG					"end_configuring="
+
+#define				SPL_TEXT_UNKNOWN				"U"
+#define				SPL_TEXT_DEBUG					"D"
+#define				SPL_TEXT_INFO					"I"
+#define				SPL_TEXT_WARN					"W"
+#define				SPL_TEXT_ERROR					"E"
+#define				SPL_TEXT_FATAL					"F"
 //========================================================================================
 
 typedef struct __GENERIC_DTA__ {
@@ -36,6 +54,16 @@ typedef struct __GENERIC_DTA__ {
 	int pl; //Point to the last
 	char data[0];
 } generic_dta_st;
+
+typedef struct __spl_local_time_st__ {
+	unsigned int year;
+	unsigned char month;
+	unsigned char day;
+	unsigned char hour;
+	unsigned char minute;
+	unsigned char sec;
+	unsigned int ms;
+} spl_local_time_st;
 
 typedef struct __SIMPLE_LOG_ST__ {
 		int llevel;
@@ -49,19 +77,22 @@ typedef struct __SIMPLE_LOG_ST__ {
 		void* sem_rwfile; //Need to close handle
 		void* sem_off; //Need to close handle
 
-		void* lc_time; //Need to sync, free
-		void* fp; //Need to close
+		spl_local_time_st* lc_time; //Need to sync, free
+		FILE* fp; //Need to close
 
 		generic_dta_st* buf; //Must be sync, free
 	} SIMPLE_LOG_ST;
 
 
 ////========================================================================================
-static const char*				__splog_pathfolder[]		= { SPLOG_PATHFOLDR, SPLOG_LEVEL, SPLOG_BUFF_SIZE, SPLOG_FILE_SIZE, 0 };
+static const char*				__splog_pathfolder[]		= { SPLOG_PATHFOLDR, 
+																SPLOG_LEVEL, 
+																SPLOG_BUFF_SIZE, 
+																SPLOG_FILE_SIZE, 
+																SPLOG_END_CFG,0 };
 static	SIMPLE_LOG_ST			__simple_log_static__;;
 
-static int				spl_init_log_parse(char* buff, char* key);
-static void*			spl_mutex_create();
+static int				spl_init_log_parse(char* buff, char* key, char *);
 static void*			spl_sem_create(int ini);
 static int				spl_verify_folder(char* folder);
 static int				spl_simple_log_thread(SIMPLE_LOG_ST* t);
@@ -69,8 +100,63 @@ static int				spl_gen_file(SIMPLE_LOG_ST* t, int *n, int limit, int *);
 static int				spl_get_fname_now(char* name);
 static int				spl_get_fname_now(char* name);
 static int				spl_standardize_path(char* fname);
-static int				spl_folder_sup(char* folder,  SYSTEMTIME* lctime, char *year_month);
+static int				spl_folder_sup(char* folder, spl_local_time_st* lctime, char *year_month);
+static int				spl_local_time_now(spl_local_time_st*st_time);
+#ifndef UNIX_LINUX
 static DWORD WINAPI		spl_written_thread_routine(LPVOID lpParam);
+#else
+static void*			spl_written_thread_routine(void*);
+#endif
+//========================================================================================
+int spl_local_time_now(spl_local_time_st*stt) {
+	int ret = 0;
+	do {
+		if (!stt) {
+			ret = SPL_LOG_ST_NAME_NULL_ERROR;
+			break;
+		}
+#ifndef UNIX_LINUX
+		SYSTEMTIME lt;
+		GetLocalTime(&lt);
+		stt->year = (unsigned int) lt.wYear;
+		stt->month = (unsigned char)lt.wMonth;
+		stt->day = (unsigned char)lt.wDay;
+
+		stt->hour = (unsigned char)lt.wHour;
+		stt->minute = (unsigned char)lt.wMinute;
+		stt->sec = (unsigned char)lt.wSecond;
+		stt->ms = (unsigned int)lt.wMilliseconds;
+#else
+// https://linux.die.net/man/3/localtime
+// https://linux.die.net/man/3/clock_gettime
+		struct tm* lt;
+		struct timespec nanosec;
+		time_t t = time(0);
+		lt = localtime(&t);
+		if (!lt) {
+			ret = SPL_LOG_TIME_NULL_ERROR;
+			break;
+		}
+		//No need freeing, 
+		//https://stackoverflow.com/questions/35031647/do-i-need-to-free-the-returned-pointer-from-localtime-function
+		ret = clock_gettime(CLOCK_REALTIME, &nanosec);
+		if (ret) {
+			ret = SPL_LOG_TIME_NANO_NULL_ERROR;
+			break;
+		}
+		stt->year = lt->tm_year;
+		//fprintf(stdout, "\n==========year: %d\n", stt->year);
+		stt->month = lt->tm_mon;
+		stt->day = lt->tm_mday;
+
+		stt->hour = lt->tm_hour;
+		stt->minute = lt->tm_min;
+		stt->sec = lt->tm_sec;
+		stt->ms = (nanosec.tv_nsec/1000000);
+#endif
+	} while (0);
+	return ret;
+}
 //========================================================================================
 int spl_set_log_levwel(int val) {
 	//simple_log_levwel = val;
@@ -88,15 +174,19 @@ int spl_get_log_levwel() {
 //========================================================================================
 int	spl_set_off(int isoff) {
 	int ret = 0;
-	spl_mutex_lock(__simple_log_static__.mtx);
+	spl_mutex_lock(__simple_log_static__.mtx_off);
 	do {
 		__simple_log_static__.off = isoff;
 	} while (0);
-	spl_mutex_unlock(__simple_log_static__.mtx);
+	spl_mutex_unlock(__simple_log_static__.mtx_off);
 	
 	if (isoff) {
 		spl_rel_sem(__simple_log_static__.sem_rwfile);
+#ifndef UNIX_LINUX
 		DWORD errCode = WaitForSingleObject(__simple_log_static__.sem_off, 3 * 1000);
+#else
+		int errCode = SPL_sem_wait(__simple_log_static__.sem_off);
+#endif
 		spl_console_log("------- errCode: %d\n", (int)errCode);
 	}
 	return ret;
@@ -113,7 +203,7 @@ int	spl_get_off() {
 }
 //========================================================================================
 
-int	spl_init_log_parse(char* buff, char *key) {
+int	spl_init_log_parse(char* buff, char *key, char *isEnd) {
 	int ret = SPL_NO_ERROR;
 	do {
 		if (strcmp(key, SPLOG_PATHFOLDR) == 0) {
@@ -165,6 +255,15 @@ int	spl_init_log_parse(char* buff, char *key) {
 				break;
 			}
 			__simple_log_static__.filesize = n;
+			spl_console_log("__simple_log_static__.filesize: %d.\n", __simple_log_static__.filesize);
+			break;
+		}
+		if (strcmp(key, SPLOG_END_CFG) == 0) {
+			spl_console_log("End configuration.\n");
+			if (isEnd) {
+				*isEnd = 1;
+			}
+			break;
 		}
 	} while (0);
 	return ret;
@@ -177,6 +276,7 @@ int	spl_init_log( char *pathcfg) {
 	int count = 0;
 	char buf[1024];
 	void* obj = 0;
+	char isEnd = 0;
 	do {
 		memset(buf, 0, sizeof(buf));
 		fp = fopen(pathcfg, "r");
@@ -206,7 +306,7 @@ int	spl_init_log( char *pathcfg) {
 						int k = strlen(node);
 						char* p = (buf + k);
 						spl_console_log("Find out the keyword: [%s] value [%s].", node, p);
-						ret = spl_init_log_parse(p, node);
+						ret = spl_init_log_parse(p, node, &isEnd);
 						break;
 					}
 					j++;
@@ -217,11 +317,18 @@ int	spl_init_log( char *pathcfg) {
 				}			
 				count = 0;
 				memset(buf, 0, sizeof(buf));
+
+				if (isEnd) {
+					break;
+				}
 				if (c == EOF) {
 					break;
 				}
 				continue;
 				
+			}
+			if (isEnd) {
+				break;
 			}
 			if (c == EOF) {
 				break;
@@ -310,13 +417,14 @@ void* spl_sem_create(int ini) {
 int spl_mutex_lock(void* obj) {
 //int pthread_mutex_lock(pthread_mutex_t *mutex);
 	int ret = 0;
-	DWORD err = 0;
+	
 	do {
 		if (!obj) {
 			ret = SPL_LOG_MUTEX_NULL_ERROR;
 			break;
 		}
 #ifndef UNIX_LINUX
+		DWORD err = 0;
 		err = WaitForSingleObject(obj, INFINITE);
 		if (err != WAIT_OBJECT_0) {
 			ret = 1;
@@ -326,19 +434,23 @@ int spl_mutex_lock(void* obj) {
 		ret = pthread_mutex_lock((pthread_mutex_t*)obj);
 #endif
 	} while (0);
+	if (ret) {
+		spl_console_log("spl_mutex_lock err: %d\n", ret);
+	}
 	return ret;
 }
 //========================================================================================
 int spl_mutex_unlock(void* obj) {
 //int pthread_mutex_unlock(pthread_mutex_t *mutex);
 	int ret = 0;
-	DWORD done = 0;
+	
 	do {
 		if (!obj) {
 			ret = SPL_LOG_MUTEX_NULL_ERROR;
 			break;
 		}
 #ifndef UNIX_LINUX
+		DWORD done = 0;
 		done = ReleaseMutex(obj);
 		if (!done) {
 			ret = 1;
@@ -348,6 +460,9 @@ int spl_mutex_unlock(void* obj) {
 		ret = pthread_mutex_unlock((pthread_mutex_t*)obj);
 #endif
 	} while (0);
+	if (ret) {
+		spl_console_log("pthread_mutex_unlock err: %d\n", ret);
+	}
 	return ret;
 }
 //========================================================================================
@@ -375,25 +490,26 @@ int spl_verify_folder(char* folder) {
 //========================================================================================
 int spl_get_fname_now(char* name) {
 	int ret = 0;
-	SYSTEMTIME st, lt;
-	GetSystemTime(&st);
-	GetLocalTime(&lt);
-
-	//spl_console_log("The system time is: %02d:%02d\n", st.wHour, st.wMinute);
-	//spl_console_log(" The local time is: %02d:%02d\n", lt.wHour, lt.wMinute);
+	spl_local_time_st lt;
+	spl_local_time_now(&lt);
 	if (name) {
-		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.wYear, lt.wMonth, lt.wDay);
+		snprintf(name, 64, "%.4d-%.2d-%.2d-simplelog", lt.year + YEAR_PADDING, lt.month + MONTH_PADDING, lt.day);
 	}
 	return ret;
 }
 #include <time.h>
 //========================================================================================
-DWORD WINAPI spl_written_thread_routine(LPVOID lpParam) {
+#ifndef UNIX_LINUX
+DWORD WINAPI spl_written_thread_routine(LPVOID lpParam)
+#else
+void* spl_written_thread_routine(void* lpParam)
+#endif
+{	
 	SIMPLE_LOG_ST* t = (SIMPLE_LOG_ST*)lpParam;
 	int ret = 0;
 	int off = 0;
 	int ssfflush = 0;
-	static time_t tttime;
+	time_t tttime = 0;
 	time_t tnnow;
 	tnnow = time(0);
 	int n = 0;
@@ -411,14 +527,19 @@ DWORD WINAPI spl_written_thread_routine(LPVOID lpParam) {
 		}
 		spl_console_log("Mutex: 0x%p.\n", t->mtx);
 		while (1) {
+#ifndef UNIX_LINUX
 			WaitForSingleObject(t->sem_rwfile, INFINITE);
+#else
+			SPL_sem_wait(t->sem_rwfile);
+#endif
+			//spl_console_log("--Detect--\n");
 			off = spl_get_off();
 			if (off) {
 				break;
 			}
 			ret = spl_gen_file(t, &sz, t->filesize, &(t->index));
 			if (ret) {
-				//Log err
+				spl_console_log("--spl_gen_file, ret: %d --\n", ret);
 				continue;
 			}
 			spl_mutex_lock(t->mtx);
@@ -440,7 +561,7 @@ DWORD WINAPI spl_written_thread_routine(LPVOID lpParam) {
 			if (!tttime) {
 				tttime = tnnow;
 			}
-			if (tnnow > tttime + 1) {
+			if (tnnow > tttime) {
 				tttime = tnnow;
 				ssfflush = 1;
 			}
@@ -478,57 +599,75 @@ DWORD WINAPI spl_written_thread_routine(LPVOID lpParam) {
 //========================================================================================
 int spl_simple_log_thread(SIMPLE_LOG_ST* t) {
 	int ret = 0;
-	HANDLE hd = 0;
-	DWORD thread_id = 0;
-	hd = CreateThread( NULL, 0, spl_written_thread_routine, t, 0, &thread_id);
 	do {
+#ifndef UNIX_LINUX
+		HANDLE hd = 0;
+		DWORD thread_id = 0;
+		hd = CreateThread(NULL, 0, spl_written_thread_routine, t, 0, &thread_id);
 		if (!hd) {
 			ret = SPL_LOG_CREATE_THREAD_ERROR;
 			break;
 		}
+#else
+		pthread_t idd = 0;
+		int err = 0;
+		err = pthread_create(&idd, 0, spl_written_thread_routine , t);
+		if (err) {
+			ret = SPL_LOG_CREATE_THREAD_ERROR;
+			break;
+		}
+#endif
 	} while (0);
 	return ret;
 }
 //========================================================================================
 int spl_fmt_now(char* fmtt, int len) {
 	int ret = 0;
+	spl_local_time_st stt;
 	static LLU pre_tnow = 0;
 	LLU _tnow = 0;
 	LLU _delta = 0;
+	int n = 0; 
+	char buff[20], buff1[20];
+	memset(buff, 0, 20);
+	memset(buff1, 0, 20);	
+
 	time_t t = time(0);
 	do {
+		memset(&stt, 0, sizeof(stt));
+		ret = spl_local_time_now(&stt);
+		if (ret) {
+			break;
+		}
 		if (!fmtt) {
 			ret = (int) SPL_LOG_FMT_NULL_ERROR;
 			break;
 		}
-		int n;
-		SYSTEMTIME st;
-		char buff[20], buff1[20];
-		memset(buff, 0, 20);
-		memset(buff1, 0, 20);
-		memset(&st, 0, sizeof(st));
-		GetSystemTime(&st);
+		
 		_tnow = t;
 		_tnow *= 1000;
-		_tnow += st.wMilliseconds;
+		_tnow += stt.ms;
 		do {
-			spl_mutex_lock(__simple_log_static__.mtx);
-			do {
+			spl_mutex_lock(__simple_log_static__.mtx_off);
+				do {
 
-				if (!pre_tnow) {
-					_delta = 0;
-					pre_tnow = _tnow;
-				}
-				else {
-					_delta = _tnow - pre_tnow;
-				}
+					if (!pre_tnow) {
+						break;
+					}
+					if (_tnow > pre_tnow) {
+						_delta = _tnow - pre_tnow;
+					}
+				} while (0);
 				pre_tnow = _tnow;
-			} while (0);
-			spl_mutex_unlock(__simple_log_static__.mtx);
+			spl_mutex_unlock(__simple_log_static__.mtx_off);
 		} while (0);
-		n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
-		n = snprintf(fmtt, len, "%s %s.%.3d (+%0.7llu)", buff, buff1, (int)st.wMilliseconds, _delta);
+		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
+		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
+
+		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
+		n = snprintf(buff1, 20, "%0.2u:%0.2u:%0.2u", stt.hour, stt.minute, stt.sec);
+
+		n = snprintf(fmtt, len, "%s %s.%.3u (+%0.7llu)", buff, buff1, (unsigned int)stt.ms, _delta);
 		//fprintf(stdout, "n: %d.\n\n", n);
 	} while (0);
 	return ret;
@@ -537,21 +676,33 @@ int spl_fmt_now(char* fmtt, int len) {
 //========================================================================================
 int spl_fmmt_now(char* fmtt, int len) {
 	int ret = 0;
+	spl_local_time_st stt;
+	char buff[20], buff1[20];
+	int n = 0; 
 	do {
 		if (!fmtt) {
 			ret = (int)SPL_LOG_FMT_NULL_ERROR;
 			break;
 		}
-		int n;
-		SYSTEMTIME st;
-		char buff[20], buff1[20];
+		memset(&stt, 0, sizeof(stt));
+		ret = spl_local_time_now(&stt);
+		if (ret) {
+			break;
+		}
+		
+		//SYSTEMTIME st;
+		
 		memset(buff, 0, 20);
 		memset(buff1, 0, 20);
-		memset(&st, 0, sizeof(st));
-		GetSystemTime(&st);
-		n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
-		n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
-		n = snprintf(fmtt, len, "%s %s.%.3d", buff, buff1, (int)st.wMilliseconds);
+		//memset(&st, 0, sizeof(st));
+		//GetSystemTime(&st);
+		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
+		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
+
+		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
+		n = snprintf(buff1, 20, "%0.2d:%0.2d:%0.2d", stt.hour, stt.minute, stt.sec);
+
+		n = snprintf(fmtt, len, "%s %s.%.3d", buff, buff1, (int)stt.ms);
 	} while (0);
 	return ret;
 }
@@ -560,28 +711,39 @@ int spl_fmmt_now(char* fmtt, int len) {
 #define SPL_FILE_NAME_FMT			"%s\\%s\\%s_%0.8d.log"
 int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 	int ret = 0;
-	SYSTEMTIME lt,* plt = 0;;
-	GetLocalTime(&lt);
+	spl_local_time_st lt,* plt = 0;;
+	//GetLocalTime(&lt);
+	
 	int renew = 1;
 	char path[1024];
 	char fmt_file_name[64];
 	int ferr = 0;
 	char yearmonth[16];
+	
 	do {
+		ret = spl_local_time_now(&lt);
+		if (ret) {
+			spl_console_log("spl_local_time_now: ret: %d.\n", ret);
+			break;
+		}
 		if (!(t->lc_time)) {
-			spl_malloc(sizeof(SYSTEMTIME), t->lc_time);
+			spl_malloc(sizeof(spl_local_time_st), t->lc_time);
 			if (!t->lc_time) {
 				ret = SPL_LOG_MEM_GEN_FILE_ERROR;
 				break;
 			}
-			memcpy(t->lc_time, &lt, sizeof(SYSTEMTIME));
+			memcpy(t->lc_time, &lt, sizeof(spl_local_time_st));
 		}
-		plt = (SYSTEMTIME*)t->lc_time;
+		plt = t->lc_time;
 		if (!t->fp) {
 			memset(path, 0, sizeof(path));
 			memset(fmt_file_name, 0, sizeof(fmt_file_name));
 			spl_get_fname_now(fmt_file_name);
 			ret = spl_folder_sup(t->folder, t->lc_time, yearmonth);
+			if (ret) {
+				spl_console_log("spl_folder_sup: ret: %d.\n", ret);
+				break;
+			}
 			do {
 				int cszize = 0; //current size
 				snprintf(path, 1024, SPL_FILE_NAME_FMT, t->folder, yearmonth, fmt_file_name, *index);
@@ -618,13 +780,13 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 				(*index)++;
 				break;
 			}
-			if (lt.wYear > plt->wYear) {
+			if (lt.year > plt->year) {
 				break;
 			}
-			if (lt.wMonth > plt->wMonth) {
+			if (lt.month > plt->month) {
 				break;
 			}
-			if (lt.wDay > plt->wDay) {
+			if (lt.day > plt->day) {
 				break;
 			}
 			renew = 0; 
@@ -632,10 +794,14 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 		if (!renew) {
 			break;
 		}
-		memcpy(t->lc_time, &lt, sizeof(SYSTEMTIME));
+		memcpy(t->lc_time, &lt, sizeof(spl_local_time_st));
 		spl_get_fname_now(fmt_file_name);
 		//snprintf(path, 1024, SPL_FILE_NAME_FMT, t->folder, *index, fmt_file_name);
 		ret = spl_folder_sup(t->folder, t->lc_time, yearmonth);
+		if (ret) {
+			spl_console_log("spl_folder_sup: ret: %d.\n", ret);
+			break;
+		}
 		snprintf(path, 1024, SPL_FILE_NAME_FMT, t->folder, yearmonth, fmt_file_name, *index);
 
 		FFCLOSE(t->fp, ferr);
@@ -724,16 +890,53 @@ const char* spl_get_text(int lev) {
 }
 //========================================================================================
 int spl_finish_log() {
-	int ret = 0;
+	int ret = 0; 
+	int err = 0;
 	spl_set_off(1);
 #ifndef UNIX_LINUX
-	CloseHandle(__simple_log_static__.mtx);
-	CloseHandle(__simple_log_static__.mtx_off);
-	CloseHandle(__simple_log_static__.sem_rwfile);
-	CloseHandle(__simple_log_static__.sem_off);
+	SPL_CloseHandle(__simple_log_static__.mtx);
+	SPL_CloseHandle(__simple_log_static__.mtx_off);
+	SPL_CloseHandle(__simple_log_static__.sem_rwfile);
+	SPL_CloseHandle(__simple_log_static__.sem_off);
 #else
 //https://linux.die.net/man/3/sem_destroy
 //https://linux.die.net/man/3/pthread_mutex_init
+	err = pthread_mutex_destroy(__simple_log_static__.mtx);
+	if (err) {
+		//fprintf(stdout, "pthread_mutex_destroy mtx error: %d. \n", err);
+		spl_console_log("pthread_mutex_destroy mtx error: %d. \n", err);
+	}
+	else {
+		//fprintf(stdout, "pthread_mutex_destroy mtx DONE. \n");
+		spl_console_log("pthread_mutex_destroy mtx DONE. \n");
+	}
+	err = pthread_mutex_destroy(__simple_log_static__.mtx_off);
+	if (err) {
+		//fprintf(stdout, "pthread_mutex_destroy mtx_off error: %d. \n", err);
+		spl_console_log("pthread_mutex_destroy mtx_off error: %d. \n", err);
+	}
+	else {
+		//fprintf(stdout, "pthread_mutex_destroy mtx_off DONE. \n");
+		spl_console_log("pthread_mutex_destroy mtx_off DONE. \n");
+	}
+	err = sem_destroy(__simple_log_static__.sem_rwfile);
+	if (err) {
+		//fprintf(stdout, "sem_destroy sem_rwfile: DONE.\n");
+		spl_console_log("sem_destroy sem_rwfile: DONE.\n");
+	}
+	else {
+		//fprintf(stdout, "sem_destroy sem_rwfile DONE. \n");
+		spl_console_log("sem_destroy sem_rwfile DONE. \n");
+	}
+	err = sem_destroy(__simple_log_static__.sem_off);
+	if (err) {
+		//fprintf(stdout, "sem_destroy sem_off error: %d. \n", err);
+		spl_console_log("sem_destroy sem_off error: %d. \n", err);
+	}
+	else {
+		//fprintf(stdout, "sem_destroy sem_off: DONE.\n");
+		spl_console_log("sem_destroy sem_off: DONE.\n");
+	}
 #endif
 	memset(&__simple_log_static__, 0, sizeof(__simple_log_static__));
 	return ret;
@@ -742,9 +945,8 @@ int spl_finish_log() {
 char* spl_get_buf(int* n, int** ppl) {
 	SIMPLE_LOG_ST* t = &__simple_log_static__;
 	char* ret = 0;
-	if (__simple_log_static__.buf);
-	if (n && ppl) {
-		if (t->buf) {
+	if (t->buf) {
+		if (n && ppl) {
 			*n = (t->buf->total > sizeof(generic_dta_st) + t->buf->pl) ? (t->buf->total - sizeof(generic_dta_st) - t->buf->pl) : 0;
 			ret = t->buf->data;
 			(*ppl) = &(t->buf->pl);
@@ -754,11 +956,13 @@ char* spl_get_buf(int* n, int** ppl) {
 }
 //========================================================================================
 //https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createdirectorya
-int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
+int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 	int ret = 0;
 	int result = 0;
 	//char tmp[1024];
 	char path[1024];
+	memset(path, 0, sizeof(path));
+	
 	do {
 		if (!folder) {
 			ret = SPL_LOG_CHECK_FOLDER_NULL_ERROR;
@@ -773,6 +977,7 @@ int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
 			break;
 		}
 		snprintf(path, 1024, "%s", folder);
+#ifndef UNIX_LINUX
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -781,7 +986,7 @@ int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(path, 1024, "%s/%0.4d", folder, lctime->wYear);
+		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year + YEAR_PADDING);
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -790,7 +995,7 @@ int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, lctime->wYear, lctime->wMonth);
+		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int) lctime->month + MONTH_PADDING);
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -799,7 +1004,49 @@ int spl_folder_sup(char* folder, SYSTEMTIME* lctime, char* year_month) {
 				break;
 			}
 		}
-		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->wYear, (int)lctime->wMonth);
+#else
+	//https://linux.die.net/man/3/mkdir
+	//https://linux.die.net/man/2/stat
+		int err = 0;
+		struct stat buf;
+		memset(&buf, 0, sizeof(buf));
+		stat(path, &buf);
+		if (!S_ISDIR(buf.st_mode)) {
+			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			memset(&buf, 0, sizeof(buf));
+			stat(path, &buf);
+			if (!S_ISDIR(buf.st_mode)) {
+				ret = SPL_LOG_CHECK_FOLDER_ERROR;
+				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
+				break;
+				
+			}
+		}
+
+		memset(&buf, 0, sizeof(buf));
+		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year + YEAR_PADDING);
+		err = stat(path, &buf);
+		if (!S_ISDIR(buf.st_mode)) {
+			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (err) {
+				ret = SPL_LOG_CHECK_FOLDER_YEAR_ERROR;
+				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
+				break;
+			}
+		}
+		memset(&buf, 0, sizeof(buf));
+		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
+		err = stat(path, &buf);
+		if (!S_ISDIR(buf.st_mode)) {
+			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (err) {
+				spl_console_log("Mkdir err path: %s, err: %d\n", path, err);
+				ret = SPL_LOG_CHECK_FILE_YEAR_ERROR;
+				break;
+			}
+		}
+#endif
+		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
 	} while (0);
 	return ret;
 }

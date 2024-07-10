@@ -9,19 +9,27 @@ extern "C" {
 
 #define LLU				unsigned long long
 
-
-#ifndef __SIMPLE_STATIC_LOG__
-	#ifdef EXPORT_DLL_API_SIMPLE_LOG
-		#define DLL_API_SIMPLE_LOG		__declspec(dllexport)
+#ifndef  UNIX_LINUX
+	#ifndef __SIMPLE_STATIC_LOG__
+		#ifdef EXPORT_DLL_API_SIMPLE_LOG
+			#define DLL_API_SIMPLE_LOG		__declspec(dllexport)
+		#else
+			#define DLL_API_SIMPLE_LOG		__declspec(dllimport)
+		#endif
 	#else
-		#define DLL_API_SIMPLE_LOG		__declspec(dllimport)
+	#define DLL_API_SIMPLE_LOG
 	#endif
 #else
 	#define DLL_API_SIMPLE_LOG
-#endif
+#endif // ! UNIX_LINUX
 
 #ifndef __SIMPLE_LOG_PLATFORM__
-	#define				__SIMPLE_LOG_PLATFORM__							"[WIN32_MSVC]"
+	#ifndef  UNIX_LINUX
+		#define				__SIMPLE_LOG_PLATFORM__							"[WIN32_MSVC]"
+	#else
+		#define				__SIMPLE_LOG_PLATFORM__							"[GNU-GCC]"
+	#endif
+	
 #endif // !__PLAT
 
 #ifndef __FILE_LINE_SIMPLELOG__
@@ -51,6 +59,10 @@ extern "C" {
 		SPL_LOG_CHECK_FILE_YEAR_ERROR,
 		SPL_LOG_CHECK_FOLDER_NULL_ERROR,
 		SPL_LOG_MUTEX_NULL_ERROR,
+		SPL_LOG_ST_NAME_NULL_ERROR,
+		SPL_LOG_TIME_NULL_ERROR,
+		SPL_LOG_TIME_NANO_NULL_ERROR, 
+		SPL_LOG_STAT_FOLDER_ERROR, 
 
 
 		SPL_END_ERROR,
@@ -64,12 +76,12 @@ fprintf(stdout, "[%s] "__FILE_LINE_SIMPLELOG__" "___fmttt___"\n" , buf, __FUNCTI
 
 
 
-#define __spl_log_buf__(___fmttt___, ...)	{int *__ppl = 0; char tnow[40]; int range=0; char* __p = 0; void *__mtx__ =  spl_get_mtx(); \
+#define __spl_log_buf__(___fmttt___, ...)	{int *__ppl = 0; char tnow[40]; int range=0; char* __p = 0; void *__mtx__ =  spl_get_mtx(); LLU thrid = spl_get_threadid();\
 int len = 0; spl_fmt_now(tnow, 40);\
 spl_mutex_lock(__mtx__);\
 __p = spl_get_buf(&range, &__ppl); if (__p && __ppl) { len = snprintf((__p + (*__ppl)), range, \
-"[%s] [threadid: %llu] [%s:%d] "___fmttt___"\n\n", \
-tnow, spl_get_threadid(), __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+"[%s] [tid: %llu] [%s:%d] "___fmttt___"\n\n", \
+tnow, thrid, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
 if(len > 0) (*__ppl) += (len -1);}\
 spl_mutex_unlock(__mtx__); spl_rel_sem(spl_get_sem());}
 
@@ -126,6 +138,8 @@ DLL_API_SIMPLE_LOG const char*
 	spl_get_text(int lev);
 DLL_API_SIMPLE_LOG char *								
 	spl_get_buf(int* n, int** ppl);
+DLL_API_SIMPLE_LOG 
+	void* spl_mutex_create();
 
 #ifdef __cplusplus
 }
