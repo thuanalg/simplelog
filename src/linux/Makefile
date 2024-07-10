@@ -13,7 +13,7 @@ debug:
 release:
 	gcc ${releaseFlag} -o ${target} ${src} ${LIBS}
 	gcc -o simpplelog_sample  ../c_test/main.c ${src} ${LIBS} ${INC}
-#	g++ -o simpplelog_cpp_sample  ../cpp_test/main.cpp ${src} ${LIBS} ${INC}
+	g++ -o simpplelog_cpp_sample  ../cpp_test/main.cpp ${src} ${LIBS} ${INC} -L./ -lsimplelog
 
 clean:
-	rm -rf ${target} simpplelog_sample
+	rm -rf ${target} simpplelog_sample simpplelog_cpp_sample

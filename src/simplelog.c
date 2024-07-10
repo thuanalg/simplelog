@@ -40,12 +40,12 @@ else {spl_console_log("Malloc: error.\n");}}
 #define				SPLOG_FILE_SIZE					"filesize="
 #define				SPLOG_END_CFG					"end_configuring="
 
-#define				SPL_TEXT_UNKNOWN				"SPL_UNKNOWN"
-#define				SPL_TEXT_DEBUG					"SPL_DEBUG"
-#define				SPL_TEXT_INFO					"SPL_INFO"
-#define				SPL_TEXT_WARN					"SPL_WARN"
-#define				SPL_TEXT_ERROR					"SPL_ERROR"
-#define				SPL_TEXT_FATAL					"SPL_FATAL"
+#define				SPL_TEXT_UNKNOWN				"U"
+#define				SPL_TEXT_DEBUG					"D"
+#define				SPL_TEXT_INFO					"I"
+#define				SPL_TEXT_WARN					"W"
+#define				SPL_TEXT_ERROR					"E"
+#define				SPL_TEXT_FATAL					"F"
 //========================================================================================
 
 typedef struct __GENERIC_DTA__ {
@@ -174,11 +174,11 @@ int spl_get_log_levwel() {
 //========================================================================================
 int	spl_set_off(int isoff) {
 	int ret = 0;
-	spl_mutex_lock(__simple_log_static__.mtx);
+	spl_mutex_lock(__simple_log_static__.mtx_off);
 	do {
 		__simple_log_static__.off = isoff;
 	} while (0);
-	spl_mutex_unlock(__simple_log_static__.mtx);
+	spl_mutex_unlock(__simple_log_static__.mtx_off);
 	
 	if (isoff) {
 		spl_rel_sem(__simple_log_static__.sem_rwfile);
@@ -648,21 +648,18 @@ int spl_fmt_now(char* fmtt, int len) {
 		_tnow *= 1000;
 		_tnow += stt.ms;
 		do {
-			spl_mutex_lock(__simple_log_static__.mtx);
-			do {
+			spl_mutex_lock(__simple_log_static__.mtx_off);
+				do {
 
-				if (!pre_tnow) {
-					//_delta = 0;
-					pre_tnow = _tnow;
-				}
-				else {
+					if (!pre_tnow) {
+						break;
+					}
 					if (_tnow > pre_tnow) {
 						_delta = _tnow - pre_tnow;
 					}
-				}
+				} while (0);
 				pre_tnow = _tnow;
-			} while (0);
-			spl_mutex_unlock(__simple_log_static__.mtx);
+			spl_mutex_unlock(__simple_log_static__.mtx_off);
 		} while (0);
 		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
 		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
