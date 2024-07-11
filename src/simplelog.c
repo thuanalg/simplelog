@@ -51,10 +51,10 @@ else {spl_console_log("Malloc: error.\n");}}
 //========================================================================================
 
 typedef struct __GENERIC_DTA__ {
-	int total;
-	int pc; //Point to the current
-	int pl; //Point to the last
-	char data[0];
+	int			total;		//Total size
+	int			pc;			//Point to the current
+	int			pl;			//Point to the last
+	char		data[0];	//Generic data
 } generic_dta_st;
 
 typedef struct __spl_local_time_st__ {
@@ -64,25 +64,25 @@ typedef struct __spl_local_time_st__ {
 	unsigned 		char 			hour;
 	unsigned 		char 			minute;
 	unsigned 		char 			sec;
-	unsigned 		int 			ms;
+	unsigned 		int 			ms; //Millisecond
 } spl_local_time_st;
 
 typedef struct __SIMPLE_LOG_ST__ {
-		int llevel;
-		int filesize;
-		int index;
-		char folder[1024];
-		char off; //Must be sync
+		int							llevel;
+		int							filesize;
+		int							index;
+		char						folder[1024];
+		char						off; //Must be sync
 
-		void* mtx; //Need to close handle
-		void* mtx_off; //Need to close handle
-		void* sem_rwfile; //Need to close handle
-		void* sem_off; //Need to close handle
+		void*						mtx; //Need to close handle
+		void*						mtx_off; //Need to close handle
+		void*						sem_rwfile; //Need to close handle
+		void*						sem_off; //Need to close handle
 
-		spl_local_time_st* lc_time; //Need to sync, free
-		FILE* fp; //Need to close
+		spl_local_time_st*			lc_time; //Need to sync, free
+		FILE*						fp; //Need to close
 
-		generic_dta_st* buf; //Must be sync, free
+		generic_dta_st*				buf; //Must be sync, free
 	} SIMPLE_LOG_ST;
 
 
@@ -302,7 +302,7 @@ int	spl_init_log( char *pathcfg) {
 					pp = strstr(buf, node);
 					if (pp)
 					{
-						int k = strlen(node);
+						size_t k = strlen(node);
 						char* p = (buf + k);
 						spl_console_log("Find out the keyword: [%s] value [%s].", node, p);
 						ret = spl_init_log_parse(p, node, &isEnd);
