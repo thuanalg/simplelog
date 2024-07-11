@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
 	char* path = (char *)"simplelog.cfg";
 	char nowfmt[64];
 	snprintf(pathcfg, 1024, path);
-	n = strlen(pathcfg);
+	n = (int)strlen(pathcfg);
 	for (i = 0; i < n; ++i) {
 		if (pathcfg[i] == '\\') {
 			pathcfg[i] = '/';
