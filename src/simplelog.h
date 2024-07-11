@@ -83,7 +83,7 @@ __p = spl_get_buf(&range, &__ppl); if (__p && __ppl) { len = snprintf((__p + (*_
 "[%s] [tid: %llu] [%s:%d] "___fmttt___"\n\n", \
 tnow, thrid, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
 if(len > 0) (*__ppl) += (len -1);}\
-spl_mutex_unlock(__mtx__); spl_rel_sem(spl_get_sem());}
+spl_mutex_unlock(__mtx__); spl_rel_sem(spl_get_sem_rwfile());}
 
 
 
@@ -129,7 +129,7 @@ DLL_API_SIMPLE_LOG int
 DLL_API_SIMPLE_LOG void*								
 	spl_get_mtx();
 DLL_API_SIMPLE_LOG void*								
-	spl_get_sem();
+	spl_get_sem_rwfile();
 DLL_API_SIMPLE_LOG LLU									
 	spl_get_threadid();
 DLL_API_SIMPLE_LOG int									

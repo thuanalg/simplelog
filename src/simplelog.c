@@ -166,10 +166,7 @@ int spl_set_log_levwel(int val) {
 }
 //========================================================================================
 int spl_get_log_levwel() {
-	int ret = 0;
-	ret = __simple_log_static__.llevel;
-	//spl_console_log("log level ret: %d.\n", ret);
-	return ret;
+	return __simple_log_static__.llevel;
 }
 //========================================================================================
 int	spl_set_off(int isoff) {
@@ -823,17 +820,11 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 }
 //========================================================================================
 void* spl_get_mtx() {
-	if (__simple_log_static__.mtx) {
-		return __simple_log_static__.mtx;
-	}
-	return 0;
+	return __simple_log_static__.mtx;
 }
 //========================================================================================
-void* spl_get_sem() {
-	if (__simple_log_static__.sem_rwfile) {
-		return __simple_log_static__.sem_rwfile;
-	}
-	return 0;
+void* spl_get_sem_rwfile() {
+	return __simple_log_static__.sem_rwfile;
 }
 //========================================================================================
 LLU	spl_get_threadid() {
