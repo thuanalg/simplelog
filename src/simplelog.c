@@ -30,9 +30,12 @@ else {spl_console_log("Malloc: error.\n");}}
 #ifndef UNIX_LINUX
 	#define SPL_CloseHandle(__obj) { int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
 #else
-	#define SPL_sem_wait(__obj) 							sem_wait((sem_t*)(__obj))
-	#define SPL_sem_destroy(__obj) 							sem_destroy((sem_t*)(__obj))
-	#define SPL_pthread_mutex_destroy(__obj) 				pthread_mutex_destroy((pthread_mutex_t*)(__obj))
+	#define SPL_sem_wait(__obj) 									sem_wait((sem_t*)(__obj))
+	#define SPL_sem_post(__obj) 									sem_post((sem_t*)(__obj))
+	//#define SPL_sem_destroy(__obj) 									sem_destroy((sem_t*)(__obj))
+	#define SPL_sem_destroy(__obj, __err) 							{ __err = sem_destroy((sem_t*)(__obj)); spl_console_log("sem_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE")}
+	//#define SPL_pthread_mutex_destroy(__obj) 						pthread_mutex_destroy((pthread_mutex_t*)(__obj))
+	#define SPL_pthread_mutex_destroy(__obj, __err) 				{ (__err) = pthread_mutex_destroy((pthread_mutex_t*)(__obj)); spl_console_log("pthread_mutex_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
 #endif
 //========================================================================================
 
@@ -839,7 +842,7 @@ int spl_rel_sem(void *sem) {
 #ifndef UNIX_LINUX
 		ReleaseSemaphore(sem, 1, 0);
 #else
-		sem_post((sem_t*)sem);
+		SPL_sem_post(sem);
 #endif // !UNIX_LINUX
 	} while (0);
 	return ret;
@@ -885,42 +888,10 @@ int spl_finish_log() {
 #else
 //https://linux.die.net/man/3/SPL_sem_destroy
 //https://linux.die.net/man/3/pthread_mutex_init
-	err = SPL_pthread_mutex_destroy(__simple_log_static__.mtx);
-	if (err) {
-		//fprintf(stdout, "SPL_pthread_mutex_destroy mtx error: %d. \n", err);
-		spl_console_log("SPL_pthread_mutex_destroy mtx error: %d. \n", err);
-	}
-	else {
-		//fprintf(stdout, "SPL_pthread_mutex_destroy mtx DONE. \n");
-		spl_console_log("SPL_pthread_mutex_destroy mtx DONE. \n");
-	}
-	err = SPL_pthread_mutex_destroy(__simple_log_static__.mtx_off);
-	if (err) {
-		//fprintf(stdout, "SPL_pthread_mutex_destroy mtx_off error: %d. \n", err);
-		spl_console_log("SPL_pthread_mutex_destroy mtx_off error: %d. \n", err);
-	}
-	else {
-		//fprintf(stdout, "SPL_pthread_mutex_destroy mtx_off DONE. \n");
-		spl_console_log("SPL_pthread_mutex_destroy mtx_off DONE. \n");
-	}
-	err = SPL_sem_destroy(__simple_log_static__.sem_rwfile);
-	if (err) {
-		//fprintf(stdout, "SPL_sem_destroy sem_rwfile: DONE.\n");
-		spl_console_log("SPL_sem_destroy sem_rwfile: DONE.\n");
-	}
-	else {
-		//fprintf(stdout, "SPL_sem_destroy sem_rwfile DONE. \n");
-		spl_console_log("SPL_sem_destroy sem_rwfile DONE. \n");
-	}
-	err = SPL_sem_destroy(__simple_log_static__.sem_off);
-	if (err) {
-		//fprintf(stdout, "SPL_sem_destroy sem_off error: %d. \n", err);
-		spl_console_log("SPL_sem_destroy sem_off error: %d. \n", err);
-	}
-	else {
-		//fprintf(stdout, "SPL_sem_destroy sem_off: DONE.\n");
-		spl_console_log("SPL_sem_destroy sem_off: DONE.\n");
-	}
+	SPL_pthread_mutex_destroy(__simple_log_static__.mtx, err);
+	SPL_pthread_mutex_destroy(__simple_log_static__.mtx_off, err);
+	SPL_sem_destroy(__simple_log_static__.sem_rwfile, err);
+	SPL_sem_destroy(__simple_log_static__.sem_off, err);
 #endif
 	memset(&__simple_log_static__, 0, sizeof(__simple_log_static__));
 	return ret;
