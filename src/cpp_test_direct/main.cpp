@@ -9,7 +9,7 @@
 #else
 #	include <unistd.h>
 	#include <pthread.h>
-	void * posix_thread_routine(void* lpParam);
+	void *posix_thread_routine(void* lpParam);
 #endif // !UNIX_LINUX
 
 
@@ -35,20 +35,19 @@ int get_off_process() {
 	spl_mutex_unlock(main_mtx);
 	return ret;
 }
-
 int number = 2;
 int main(int argc, char* argv[]) {
 	int n = 0, ret = 0, i = 0;
-	main_mtx = spl_mutex_create();
 	if (argc > 1) {
 		n = sscanf(argv[1], "%d", &number);
 	}
+	main_mtx = spl_mutex_create();
 	spl_console_log("Main thread.\n");
 	char pathcfg[1024];
-	char* path = "simplelog.cfg";
+	char* path = (char *)"simplelog.cfg";
 	char nowfmt[64];
 	snprintf(pathcfg, 1024, path);
-	n = strlen(pathcfg);
+	n = (int)strlen(pathcfg);
 	for (i = 0; i < n; ++i) {
 		if (pathcfg[i] == '\\') {
 			pathcfg[i] = '/';
@@ -89,6 +88,7 @@ int main(int argc, char* argv[]) {
 #endif
 	spl_console_log("--Main close--\n");
 	spl_finish_log();
+	
 	return EXIT_SUCCESS;
 }
 void dotest() {
@@ -109,17 +109,16 @@ void dotest() {
 }
 
 #ifndef UNIX_LINUX
-	#define  SPL_Sleep(__k__)						Sleep( (__k__) * 1000)
+	#define SPL_Sleep(__k__)				Sleep((__k__) * 1000)
 #else
-	#define SPL_Sleep(__k__)						sleep(__k__)
+	#define SPL_Sleep(__k__)				sleep(__k__)
 #endif
 
 #ifndef UNIX_LINUX
-DWORD WINAPI win32_thread_routine(LPVOID lpParam)
+	DWORD WINAPI win32_thread_routine(LPVOID lpParam) {
 #else
-void* posix_thread_routine(void* lpParam) 
+	void* posix_thread_routine(void* lpParam) {
 #endif // !UNIX_LINUX
-{
 	int k = 0;
 	while (1) {
 		k = get_off_process();
@@ -131,3 +130,4 @@ void* posix_thread_routine(void* lpParam)
 	}
 	return 0;
 }
+

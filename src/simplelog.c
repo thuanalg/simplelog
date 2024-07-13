@@ -5,8 +5,8 @@
 #include <time.h>
 #ifndef UNIX_LINUX
 	#include <Windows.h>
-#define YEAR_PADDING				0
-#define MONTH_PADDING				0
+	#define YEAR_PADDING				0
+	#define MONTH_PADDING				0
 #else
 	#include <sys/types.h>
 	#include <sys/stat.h>
@@ -26,11 +26,16 @@ else {spl_console_log("Malloc: error.\n");}}
 
 #define spl_free(__obj__) { spl_console_log("Free: 0x:%p.\n", (__obj__)); free(__obj__); ; (__obj__) = 0;} 
 
-#define FFCLOSE(fp, __n) { (__n) = fclose(fp); if(__n) {spl_console_log("Close FILE error code: %d.\n", (__n))};}
+#define FFCLOSE(fp, __n)	{ (__n) = fclose(fp); if(!__n) { (fp) = 0;} ;spl_console_log("Close FILE error code: %d, %s.\n", (__n), (__n) ? "FAILED": "DONE"); }
 #ifndef UNIX_LINUX
 	#define SPL_CloseHandle(__obj) { int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
 #else
-	#define SPL_sem_wait(__obj) 		sem_wait((sem_t*)(__obj))
+	#define SPL_sem_wait(__obj) 							sem_wait((sem_t*)(__obj))
+	#define SPL_sem_post(__obj) 							sem_post((sem_t*)(__obj))
+	#define SPL_sem_destroy(__obj, __err) 					{ (__err) = sem_destroy((sem_t*)(__obj)); if((__err)) spl_console_log("sem_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE")}
+	#define SPL_pthread_mutex_destroy(__obj, __err)			{ (__err) = pthread_mutex_destroy((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_pthread_mutex_lock(__obj, __err) 			{ (__err) = pthread_mutex_lock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_lock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_pthread_mutex_unlock(__obj, __err) 			{ (__err) = pthread_mutex_unlock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_unlock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
 #endif
 //========================================================================================
 
@@ -49,38 +54,38 @@ else {spl_console_log("Malloc: error.\n");}}
 //========================================================================================
 
 typedef struct __GENERIC_DTA__ {
-	int total;
-	int pc; //Point to the current
-	int pl; //Point to the last
-	char data[0];
+	int			total;		//Total size
+	int			pc;			//Point to the current
+	int			pl;			//Point to the last
+	char		data[0];	//Generic data
 } generic_dta_st;
 
 typedef struct __spl_local_time_st__ {
-	unsigned int year;
-	unsigned char month;
-	unsigned char day;
-	unsigned char hour;
-	unsigned char minute;
-	unsigned char sec;
-	unsigned int ms;
+	unsigned 		int 			year;
+	unsigned 		char 			month;
+	unsigned 		char 			day;
+	unsigned 		char 			hour;
+	unsigned 		char 			minute;
+	unsigned 		char 			sec;
+	unsigned 		int 			ms; //Millisecond
 } spl_local_time_st;
 
 typedef struct __SIMPLE_LOG_ST__ {
-		int llevel;
-		int filesize;
-		int index;
-		char folder[1024];
-		char off; //Must be sync
+		int							llevel;
+		int							filesize;
+		int							index;
+		char						folder[1024];
+		char						off; //Must be sync
 
-		void* mtx; //Need to close handle
-		void* mtx_off; //Need to close handle
-		void* sem_rwfile; //Need to close handle
-		void* sem_off; //Need to close handle
+		void*						mtx; //Need to close handle
+		void*						mtx_off; //Need to close handle
+		void*						sem_rwfile; //Need to close handle
+		void*						sem_off; //Need to close handle
 
-		spl_local_time_st* lc_time; //Need to sync, free
-		FILE* fp; //Need to close
+		spl_local_time_st*			lc_time; //Need to sync, free
+		FILE*						fp; //Need to close
 
-		generic_dta_st* buf; //Must be sync, free
+		generic_dta_st*				buf; //Must be sync, free
 	} SIMPLE_LOG_ST;
 
 
@@ -166,10 +171,7 @@ int spl_set_log_levwel(int val) {
 }
 //========================================================================================
 int spl_get_log_levwel() {
-	int ret = 0;
-	ret = __simple_log_static__.llevel;
-	//spl_console_log("log level ret: %d.\n", ret);
-	return ret;
+	return __simple_log_static__.llevel;
 }
 //========================================================================================
 int	spl_set_off(int isoff) {
@@ -303,7 +305,7 @@ int	spl_init_log( char *pathcfg) {
 					pp = strstr(buf, node);
 					if (pp)
 					{
-						int k = strlen(node);
+						size_t k = strlen(node);
 						char* p = (buf + k);
 						spl_console_log("Find out the keyword: [%s] value [%s].", node, p);
 						ret = spl_init_log_parse(p, node, &isEnd);
@@ -374,9 +376,7 @@ int	spl_init_log( char *pathcfg) {
 		// ret = spl_simple_log_thread(&__simple_log_static__);
 	} while (0);
 	if (fp) {
-		//ret = fclose(fp);
 		FFCLOSE(fp,ret);
-		spl_console_log("Close file result: %s.\n", ret ? "FAILED" : "DONE");
 	}
 	if (ret == 0) {
 		ret = spl_simple_log_thread(&__simple_log_static__);
@@ -415,7 +415,6 @@ void* spl_sem_create(int ini) {
 }
 //========================================================================================
 int spl_mutex_lock(void* obj) {
-//int pthread_mutex_lock(pthread_mutex_t *mutex);
 	int ret = 0;
 	
 	do {
@@ -431,17 +430,16 @@ int spl_mutex_lock(void* obj) {
 			break;
 		}
 #else
-		ret = pthread_mutex_lock((pthread_mutex_t*)obj);
+		SPL_pthread_mutex_lock((pthread_mutex_t*)obj, ret);
 #endif
 	} while (0);
-	if (ret) {
-		spl_console_log("spl_mutex_lock err: %d\n", ret);
-	}
+	//if (ret) {
+	//	spl_console_log("spl_mutex_lock err: %d\n", ret);
+	//}
 	return ret;
 }
 //========================================================================================
 int spl_mutex_unlock(void* obj) {
-//int pthread_mutex_unlock(pthread_mutex_t *mutex);
 	int ret = 0;
 	
 	do {
@@ -457,12 +455,12 @@ int spl_mutex_unlock(void* obj) {
 			break;
 		}
 #else
-		ret = pthread_mutex_unlock((pthread_mutex_t*)obj);
+		SPL_pthread_mutex_unlock((pthread_mutex_t*)obj, ret);
 #endif
 	} while (0);
-	if (ret) {
-		spl_console_log("pthread_mutex_unlock err: %d\n", ret);
-	}
+	//if (ret) {
+	//	spl_console_log("pthread_mutex_unlock err: %d\n", ret);
+	//}
 	return ret;
 }
 //========================================================================================
@@ -532,7 +530,7 @@ void* spl_written_thread_routine(void* lpParam)
 #else
 			SPL_sem_wait(t->sem_rwfile);
 #endif
-			//spl_console_log("--Detect--\n");
+			//spl_console_log("\n\n=========================--Detect--=============================================\n\n");
 			off = spl_get_off();
 			if (off) {
 				break;
@@ -560,6 +558,7 @@ void* spl_written_thread_routine(void* lpParam)
 			spl_mutex_unlock(t->mtx);
 			if (!tttime) {
 				tttime = tnnow;
+				ssfflush = 1;
 			}
 			if (tnnow > tttime) {
 				tttime = tnnow;
@@ -573,15 +572,6 @@ void* spl_written_thread_routine(void* lpParam)
 		if (t->fp) {
 			int werr = 0;
 			FFCLOSE(t->fp, werr);
-			if (werr) {
-				//GetLastErr
-				spl_console_log("close file err: %d,\n\n", werr);
-			}
-			else {
-				t->fp = 0;
-				spl_console_log("close file done,\n\n");
-			}
-			
 			if (t->lc_time) {
 				spl_free(t->lc_time);
 			}
@@ -760,7 +750,9 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 				if (cszize > limit) {
 					int err = 0;
 					FFCLOSE(t->fp, err);
-					t->fp = 0;
+					if(err) {
+						ret = SPL_LOG_CLOSE_FILE_ERROR;
+					}
 					(*index)++;
 				}
 				else {
@@ -823,17 +815,11 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 }
 //========================================================================================
 void* spl_get_mtx() {
-	if (__simple_log_static__.mtx) {
-		return __simple_log_static__.mtx;
-	}
-	return 0;
+	return __simple_log_static__.mtx;
 }
 //========================================================================================
-void* spl_get_sem() {
-	if (__simple_log_static__.sem_rwfile) {
-		return __simple_log_static__.sem_rwfile;
-	}
-	return 0;
+void* spl_get_sem_rwfile() {
+	return __simple_log_static__.sem_rwfile;
 }
 //========================================================================================
 LLU	spl_get_threadid() {
@@ -855,7 +841,13 @@ int spl_rel_sem(void *sem) {
 #ifndef UNIX_LINUX
 		ReleaseSemaphore(sem, 1, 0);
 #else
-		sem_post((sem_t*)sem);
+		int err = 0, val = 0;
+		err = sem_getvalue((sem_t*)sem, &val);
+		if (!err) {
+			if (val < 1) {
+				SPL_sem_post(sem);
+			}
+		}
 #endif // !UNIX_LINUX
 	} while (0);
 	return ret;
@@ -899,44 +891,12 @@ int spl_finish_log() {
 	SPL_CloseHandle(__simple_log_static__.sem_rwfile);
 	SPL_CloseHandle(__simple_log_static__.sem_off);
 #else
-//https://linux.die.net/man/3/sem_destroy
+//https://linux.die.net/man/3/SPL_sem_destroy
 //https://linux.die.net/man/3/pthread_mutex_init
-	err = pthread_mutex_destroy(__simple_log_static__.mtx);
-	if (err) {
-		//fprintf(stdout, "pthread_mutex_destroy mtx error: %d. \n", err);
-		spl_console_log("pthread_mutex_destroy mtx error: %d. \n", err);
-	}
-	else {
-		//fprintf(stdout, "pthread_mutex_destroy mtx DONE. \n");
-		spl_console_log("pthread_mutex_destroy mtx DONE. \n");
-	}
-	err = pthread_mutex_destroy(__simple_log_static__.mtx_off);
-	if (err) {
-		//fprintf(stdout, "pthread_mutex_destroy mtx_off error: %d. \n", err);
-		spl_console_log("pthread_mutex_destroy mtx_off error: %d. \n", err);
-	}
-	else {
-		//fprintf(stdout, "pthread_mutex_destroy mtx_off DONE. \n");
-		spl_console_log("pthread_mutex_destroy mtx_off DONE. \n");
-	}
-	err = sem_destroy(__simple_log_static__.sem_rwfile);
-	if (err) {
-		//fprintf(stdout, "sem_destroy sem_rwfile: DONE.\n");
-		spl_console_log("sem_destroy sem_rwfile: DONE.\n");
-	}
-	else {
-		//fprintf(stdout, "sem_destroy sem_rwfile DONE. \n");
-		spl_console_log("sem_destroy sem_rwfile DONE. \n");
-	}
-	err = sem_destroy(__simple_log_static__.sem_off);
-	if (err) {
-		//fprintf(stdout, "sem_destroy sem_off error: %d. \n", err);
-		spl_console_log("sem_destroy sem_off error: %d. \n", err);
-	}
-	else {
-		//fprintf(stdout, "sem_destroy sem_off: DONE.\n");
-		spl_console_log("sem_destroy sem_off: DONE.\n");
-	}
+	SPL_pthread_mutex_destroy(__simple_log_static__.mtx, err);
+	SPL_pthread_mutex_destroy(__simple_log_static__.mtx_off, err);
+	SPL_sem_destroy(__simple_log_static__.sem_rwfile, err);
+	SPL_sem_destroy(__simple_log_static__.sem_off, err);
 #endif
 	memset(&__simple_log_static__, 0, sizeof(__simple_log_static__));
 	return ret;
