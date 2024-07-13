@@ -30,12 +30,12 @@ else {spl_console_log("Malloc: error.\n");}}
 #ifndef UNIX_LINUX
 	#define SPL_CloseHandle(__obj) { int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
 #else
-	#define SPL_sem_wait(__obj) 									sem_wait((sem_t*)(__obj))
-	#define SPL_sem_post(__obj) 									sem_post((sem_t*)(__obj))
-	//#define SPL_sem_destroy(__obj) 									sem_destroy((sem_t*)(__obj))
-	#define SPL_sem_destroy(__obj, __err) 							{ __err = sem_destroy((sem_t*)(__obj)); spl_console_log("sem_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE")}
-	//#define SPL_pthread_mutex_destroy(__obj) 						pthread_mutex_destroy((pthread_mutex_t*)(__obj))
-	#define SPL_pthread_mutex_destroy(__obj, __err) 				{ (__err) = pthread_mutex_destroy((pthread_mutex_t*)(__obj)); spl_console_log("pthread_mutex_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_sem_wait(__obj) 							sem_wait((sem_t*)(__obj))
+	#define SPL_sem_post(__obj) 							sem_post((sem_t*)(__obj))
+	#define SPL_sem_destroy(__obj, __err) 					{ (__err) = sem_destroy((sem_t*)(__obj)); if((__err)) spl_console_log("sem_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE")}
+	#define SPL_pthread_mutex_destroy(__obj, __err)			{ (__err) = pthread_mutex_destroy((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_pthread_mutex_lock(__obj, __err) 			{ (__err) = pthread_mutex_lock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_lock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_pthread_mutex_unlock(__obj, __err) 			{ (__err) = pthread_mutex_unlock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_unlock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
 #endif
 //========================================================================================
 
@@ -415,7 +415,6 @@ void* spl_sem_create(int ini) {
 }
 //========================================================================================
 int spl_mutex_lock(void* obj) {
-//int pthread_mutex_lock(pthread_mutex_t *mutex);
 	int ret = 0;
 	
 	do {
@@ -431,17 +430,16 @@ int spl_mutex_lock(void* obj) {
 			break;
 		}
 #else
-		ret = pthread_mutex_lock((pthread_mutex_t*)obj);
+		SPL_pthread_mutex_lock((pthread_mutex_t*)obj, ret);
 #endif
 	} while (0);
-	if (ret) {
-		spl_console_log("spl_mutex_lock err: %d\n", ret);
-	}
+	//if (ret) {
+	//	spl_console_log("spl_mutex_lock err: %d\n", ret);
+	//}
 	return ret;
 }
 //========================================================================================
 int spl_mutex_unlock(void* obj) {
-//int pthread_mutex_unlock(pthread_mutex_t *mutex);
 	int ret = 0;
 	
 	do {
@@ -457,12 +455,12 @@ int spl_mutex_unlock(void* obj) {
 			break;
 		}
 #else
-		ret = pthread_mutex_unlock((pthread_mutex_t*)obj);
+		SPL_pthread_mutex_unlock((pthread_mutex_t*)obj, ret);
 #endif
 	} while (0);
-	if (ret) {
-		spl_console_log("pthread_mutex_unlock err: %d\n", ret);
-	}
+	//if (ret) {
+	//	spl_console_log("pthread_mutex_unlock err: %d\n", ret);
+	//}
 	return ret;
 }
 //========================================================================================
@@ -532,7 +530,7 @@ void* spl_written_thread_routine(void* lpParam)
 #else
 			SPL_sem_wait(t->sem_rwfile);
 #endif
-			//spl_console_log("--Detect--\n");
+			//spl_console_log("\n\n=========================--Detect--=============================================\n\n");
 			off = spl_get_off();
 			if (off) {
 				break;
@@ -560,6 +558,7 @@ void* spl_written_thread_routine(void* lpParam)
 			spl_mutex_unlock(t->mtx);
 			if (!tttime) {
 				tttime = tnnow;
+				ssfflush = 1;
 			}
 			if (tnnow > tttime) {
 				tttime = tnnow;
@@ -842,7 +841,13 @@ int spl_rel_sem(void *sem) {
 #ifndef UNIX_LINUX
 		ReleaseSemaphore(sem, 1, 0);
 #else
-		SPL_sem_post(sem);
+		int err = 0, val = 0;
+		err = sem_getvalue((sem_t*)sem, &val);
+		if (!err) {
+			if (val < 1) {
+				SPL_sem_post(sem);
+			}
+		}
 #endif // !UNIX_LINUX
 	} while (0);
 	return ret;

@@ -107,9 +107,17 @@ void dotest() {
 	}
 #endif
 }
+#ifndef UNIX_LINUX
+#define SPL_Sleep(__k__)				Sleep((__k__) * 1000)
+#else
+#define SPL_Sleep(__k__)				sleep(__k__)
+#endif
 
 #ifndef UNIX_LINUX
 DWORD WINAPI win32_thread_routine(LPVOID lpParam) {
+#else
+void* posix_thread_routine(void* lpParam) {
+#endif // !UNIX_LINUX
 	int k = 0;
 	while (1) {
 		k = get_off_process();
@@ -117,18 +125,7 @@ DWORD WINAPI win32_thread_routine(LPVOID lpParam) {
 			break;
 		}
 		spllog(SPL_LOG_INFO, "test log: %llu", (LLU)time(0));
-		Sleep(1 * 1000);
+		SPL_Sleep(5);
 	}
 	return 0;
 }
-#else
-
-void* posix_thread_routine(void* lpParam) {
-	while (1) {
-		spllog(SPL_LOG_INFO, "test log: %llu", (LLU)time(0));
-		sleep(1);
-	}
-	return 0;
-}
-#endif // !UNIX_LINUX
-
