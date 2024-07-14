@@ -1,12 +1,12 @@
 //================================================================================================================
 // Email:														
-//		<nguyenthaithuanalg@gmail.com>
+//		<nguyenthaithuanalg@gmail.com> - Nguyễn Thái Thuận
 // Date:														
 //		<2024-July-14>
 // The lasted modified date:									
 //		<2024-July-14>
 // Decription:													
-//		The (only) main header file to export 3 APIs: spl_init_log, spllog, spl_finish_log.
+//		The (only) main header file to export 3 APIs: [spl_init_log, spllog, spl_finish_log].
 //===============================================================================================================
 #ifndef ___SIMPLE_LOG__
 #define ___SIMPLE_LOG__
@@ -72,11 +72,13 @@ extern "C" {
 		SPL_LOG_ST_NAME_NULL_ERROR,
 		SPL_LOG_TIME_NULL_ERROR,
 		SPL_LOG_TIME_NANO_NULL_ERROR, 
-		SPL_LOG_STAT_FOLDER_ERROR, 
+		SPL_LOG_STAT_FOLDER_ERROR,
+		SPL_LOG_PRINTF_ERROR,
 
 
 		SPL_END_ERROR,
 	} SPL_LOG_ERROR;
+
 
 
 #define spl_console_log(___fmttt___, ...)		{char buf[1024];spl_fmmt_now(buf, 1024);\
@@ -102,7 +104,6 @@ spl_mutex_unlock(__mtx__); spl_rel_sem(spl_get_sem_rwfile());}
 
 
 #define spllog(__lv__, __fmtt__, ...) { if(spl_get_log_levwel() <= (__lv__) ) {__spl_log_buf__("[%s] -->> "__fmtt__, spl_get_text(__lv__), ##__VA_ARGS__);};}
-
 
 
 

@@ -1,6 +1,6 @@
 //================================================================================================================
 // Email:														
-//		<nguyenthaithuanalg@gmail.com>
+//		<nguyenthaithuanalg@gmail.com> - Nguyễn Thái Thuận
 // Date:														
 //		<2024-July-14>
 // The lasted modified date:									
@@ -30,7 +30,7 @@
 
 //========================================================================================
 
-#define spl_malloc(__nn__, __obj__) { (__obj__) = malloc(__nn__); if(__obj__) \
+#define spl_malloc(__nn__, __obj__, __type__) { (__obj__) = (__type__*) malloc(__nn__); if(__obj__) \
 	{spl_console_log("Malloc: 0x%p\n", (__obj__)); memset((__obj__), 0, (__nn__));} \
 	else {spl_console_log("Malloc: error.\n");}} 
 
@@ -69,6 +69,16 @@
 	"rotation_size="
 #define	SPLOG_END_CFG \
 	"end_configuring="
+#define SPL_FILE_NAME_FMT \
+	"%s\\%s\\%s_%.8d.log"
+#define SPL_FMT_DATE_ADDING \
+	"%.4d-%.2d-%.2d"
+#define SPL_FMT_HOUR_ADDING \
+	"%.2d:%.2d:%.2d"
+#define SPL_FMT_DELT_ADDING \
+	"%s %s.%.3u (+%.7llu)"
+#define SPL_FMT_MILL_ADDING \
+	"%s %s.%.3d"
 
 #define				SPL_TEXT_UNKNOWN				"U"
 #define				SPL_TEXT_DEBUG					"D"
@@ -233,9 +243,7 @@ int spl_local_time_now(spl_local_time_st*stt) {
 }
 //========================================================================================
 int spl_set_log_levwel(int val) {
-	//simple_log_levwel = val;
 	__simple_log_static__.llevel = val;
-	spl_console_log("log level: %d.\n", __simple_log_static__.llevel);
 	return 0;
 }
 //========================================================================================
@@ -252,11 +260,12 @@ int	spl_set_off(int isoff) {
 	spl_mutex_unlock(__simple_log_static__.mtx_off);
 	
 	if (isoff) {
+		int errCode = 0;
 		spl_rel_sem(__simple_log_static__.sem_rwfile);
 #ifndef UNIX_LINUX
-		DWORD errCode = WaitForSingleObject(__simple_log_static__.sem_off, 3 * 1000);
+		errCode = (int) WaitForSingleObject(__simple_log_static__.sem_off, 3 * 1000);
 #else
-		int errCode = SPL_sem_wait(__simple_log_static__.sem_off);
+		errCode = SPL_sem_wait(__simple_log_static__.sem_off);
 #endif
 		spl_console_log("------- errCode: %d\n", (int)errCode);
 	}
@@ -289,7 +298,7 @@ int	spl_init_log_parse(char* buff, char *key, char *isEnd) {
 			int n = 0;
 			int count = 0;
 			count = sscanf(buff, "%d", &n);
-			if (n < 0) {
+			if (n < 0 || count < 1) {
 				ret = SPL_LOG_LEVEL_ERROR;
 				break;
 			}
@@ -302,11 +311,11 @@ int	spl_init_log_parse(char* buff, char *key, char *isEnd) {
 			int sz = 0;
 			char* p = 0;
 			sz = sscanf(buff, "%d", &n);
-			if (n < 1) {
+			if (n < 1 || sz < 1) {
 				ret = SPL_LOG_BUFF_SIZE_ERROR;
 				break;
 			}
-			spl_malloc(n + 2, p);
+			spl_malloc(n + 2, p, char);
 			//p = (char*)malloc(n + 2);
 			if (!p) {
 				ret = SPL_LOG_MEM_MALLOC_ERROR;
@@ -321,7 +330,7 @@ int	spl_init_log_parse(char* buff, char *key, char *isEnd) {
 			int n = 0;
 			int sz = 0;
 			sz = sscanf(buff, "%d", &n);
-			if (n < 1) {
+			if (n < 1 || sz < 1) {
 				ret = SPL_LOG_ROT_SIZE_ERROR;
 				break;
 			}
@@ -374,8 +383,10 @@ int	spl_init_log( char *pathcfg) {
 					pp = strstr(buf, node);
 					if (pp)
 					{
-						size_t k = strlen(node);
-						char* p = (buf + k);
+						char* p = 0;
+						size_t k = 0; 
+						k =  strlen(node);
+						p = (buf + k);
 						spl_console_log("Find out the keyword: [%s] value [%s].", node, p);
 						ret = spl_init_log_parse(p, node, &isEnd);
 						break;
@@ -465,7 +476,7 @@ void* spl_mutex_create() {
 			break;
 		}
 		memset(ret, 0, sizeof(pthread_mutex_t));
-		pthread_mutex_init(ret, 0);
+		pthread_mutex_init((pthread_mutex_t*)ret, 0);
 #endif // !UNIX_LINUX
 	} while (0);
 	return ret;
@@ -478,7 +489,7 @@ void* spl_sem_create(int ini) {
 #else
 	ret = malloc(sizeof(sem_t));
 	memset(ret, 0, sizeof(sem_t));
-	sem_init(ret, 0, 0);
+	sem_init((sem_t*)ret, 0, 0);
 #endif // !UNIX_LINUX	
 	return ret;
 }
@@ -574,13 +585,6 @@ void* spl_written_thread_routine(void* lpParam)
 {	
 	SIMPLE_LOG_ST* t = (SIMPLE_LOG_ST*)lpParam;
 	int ret = 0, off = 0, n = 0, sz = 0;
-	//int off = 0;
-	//int ssfflush = 0;
-	//time_t tttime = 0;
-	//time_t tnnow;
-	//tnnow = time(0);
-	//int n = 0;
-	//int sz = 0;
 	do {		
 		if (!t) {
 			exit(1);
@@ -619,25 +623,10 @@ void* spl_written_thread_routine(void* lpParam)
 					n += k;
 					sz += k;
 					t->buf->pl = t->buf->pc = 0;
-					//if (t->buf->total < (n + 1000)) {
-					//	ssfflush = 1;
-					//}
 				}
 			} while (0);
 			spl_mutex_unlock(t->mtx);
 			fflush(t->fp);
-			//if (!tttime) {
-			//	tttime = tnnow;
-			//	ssfflush = 1;
-			//}
-			//if (tnnow > tttime) {
-			//	tttime = tnnow;
-			//	ssfflush = 1;
-			//}
-			//if (ssfflush) {
-			//	fflush(t->fp);
-			//	ssfflush = 0;
-			//}
 		}
 		if (t->fp) {
 			int werr = 0;
@@ -724,9 +713,16 @@ int spl_fmt_now(char* fmtt, int len) {
 			spl_mutex_unlock(__simple_log_static__.mtx_off);
 		} while (0);
 
-		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
-		n = snprintf(buff1, 20, "%0.2u:%0.2u:%0.2u", stt.hour, stt.minute, stt.sec);
-		n = snprintf(fmtt, len, "%s %s.%.3u (+%0.7llu)", buff, buff1, (unsigned int)stt.ms, _delta);
+		//n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
+		n = snprintf(buff, 20, SPL_FMT_DATE_ADDING, stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
+		if (n < 1) {
+			ret = SPL_LOG_PRINTF_ERROR;
+			break;
+		}
+		//n = snprintf(buff1, 20, "%0.2u:%0.2u:%0.2u", stt.hour, stt.minute, stt.sec);
+		n = snprintf(buff1, 20, SPL_FMT_HOUR_ADDING, stt.hour, stt.minute, stt.sec);
+		//n = snprintf(fmtt, len, "%s %s.%.3u (+%0.7llu)", buff, buff1, (unsigned int)stt.ms, _delta);
+		n = snprintf(fmtt, len, SPL_FMT_DELT_ADDING, buff, buff1, (unsigned int)stt.ms, _delta);
 
 	} while (0);
 	return ret;
@@ -752,16 +748,23 @@ int spl_fmmt_now(char* fmtt, int len) {
 		memset(buff, 0, 20);
 		memset(buff1, 0, 20);
 
-		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
-		n = snprintf(buff1, 20, "%0.2d:%0.2d:%0.2d", stt.hour, stt.minute, stt.sec);
-		n = snprintf(fmtt, len, "%s %s.%.3d", buff, buff1, (int)stt.ms);
+		//n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
+		n = snprintf(buff, 20, SPL_FMT_DATE_ADDING, stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
+		if (n < 1) {
+			ret = SPL_LOG_PRINTF_ERROR;
+			break;
+		}
+		//n = snprintf(buff1, 20, "%0.2d:%0.2d:%0.2d", stt.hour, stt.minute, stt.sec);
+		n = snprintf(buff1, 20, SPL_FMT_HOUR_ADDING, stt.hour, stt.minute, stt.sec);
+		//n = snprintf(fmtt, len, "%s %s.%.3d", buff, buff1, (int)stt.ms);
+		n = snprintf(fmtt, len, SPL_FMT_MILL_ADDING, buff, buff1, (int)stt.ms);
 
 	} while (0);
 	return ret;
 }
 
 //========================================================================================
-#define SPL_FILE_NAME_FMT			"%s\\%s\\%s_%0.8d.log"
+
 int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 	int ret = 0;
 	spl_local_time_st lt,* plt = 0;;
@@ -778,7 +781,7 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 			break;
 		}
 		if (!(t->lc_time)) {
-			spl_malloc(sizeof(spl_local_time_st), t->lc_time);
+			spl_malloc(sizeof(spl_local_time_st), t->lc_time, spl_local_time_st);
 			if (!t->lc_time) {
 				ret = SPL_LOG_MEM_GEN_FILE_ERROR;
 				break;
@@ -976,7 +979,7 @@ char* spl_get_buf(int* n, int** ppl) {
 //========================================================================================
 //https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createdirectorya
 int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
-	int ret = 0, result = 0;
+	int ret = 0;
 	char path[1024];
 	memset(path, 0, sizeof(path));
 	
@@ -995,6 +998,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 		}
 		snprintf(path, 1024, "%s", folder);
 #ifndef UNIX_LINUX
+		int result = 0;
 		result = CreateDirectoryA(path, 0);
 		if (!result) {
 			DWORD xerr = GetLastError();
@@ -1041,7 +1045,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 		}
 
 		memset(&buf, 0, sizeof(buf));
-		snprintf(path, 1024, "%s/%0.4u", folder, lctime->year + YEAR_PADDING);
+		snprintf(path, 1024, "%s/%.4u", folder, lctime->year + YEAR_PADDING);
 		err = stat(path, &buf);
 		if (!S_ISDIR(buf.st_mode)) {
 			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -1052,7 +1056,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 			}
 		}
 		memset(&buf, 0, sizeof(buf));
-		snprintf(path, 1024, "%s/%0.4d/%0.2d", folder, (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
+		snprintf(path, 1024, "%s/%.4d/%.2d", folder, (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
 		err = stat(path, &buf);
 		if (!S_ISDIR(buf.st_mode)) {
 			err = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -1063,7 +1067,7 @@ int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
 			}
 		}
 #endif
-		snprintf(year_month, 10, "%0.4d\\%0.2d", (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
+		snprintf(year_month, 10, "%.4d\\%.2d", (int)lctime->year + YEAR_PADDING, (int)lctime->month + MONTH_PADDING);
 	} while (0);
 	return ret;
 }

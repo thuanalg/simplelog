@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
 		
 		spl_sleep(10);
 		
-		spllog(SPL_LOG_DEBUG, "%s", "\n Looping for waiting trigger.\n");
+		spllog(SPL_LOG_DEBUG, "%s", "Looping for waiting trigger.\n");
 		fp = fopen("trigger.txt", "r");
 		if (fp) {
 			fclose(fp);
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
 		}
 
 	}
-	spllog(SPL_LOG_INFO, "%s", "\nset_off_process.\n");
+	spllog(SPL_LOG_INFO, "%s", "set_off_process.\n");
 	set_off_process(1);
 	spl_sleep(1);
 	spl_console_log("Main close: spl_finish_log.\n");
