@@ -65,12 +65,7 @@ int main(int argc, char* argv[]) {
 	dotest();
 	while (1) {
 		FILE* fp = 0;
-#ifndef UNIX_LINUX
-		Sleep(10 * 1000);
-#else
-		sleep(10);
-#endif
-		
+		spl_sleep(10);
 		spllog(SPL_LOG_DEBUG, "%s", "\n<<-->>\n");
 		fp = fopen("trigger.txt", "r");
 		if (fp) {
@@ -80,13 +75,8 @@ int main(int argc, char* argv[]) {
 
 	}
 	spllog(SPL_LOG_INFO, "%s", "\n<<--->>\n");
-	
 	set_off_process(1);
-#ifndef UNIX_LINUX
-	Sleep(1000);
-#else
-	sleep(1);
-#endif
+	spl_sleep(1);
 	spl_console_log("--Main close--\n");
 	spl_finish_log();
 	return EXIT_SUCCESS;
@@ -108,11 +98,6 @@ void dotest() {
 #endif
 }
 
-#ifndef UNIX_LINUX
-	#define  SPL_Sleep(__k__)						Sleep( (__k__) * 1000)
-#else
-	#define SPL_Sleep(__k__)						sleep(__k__)
-#endif
 
 #ifndef UNIX_LINUX
 DWORD WINAPI win32_thread_routine(LPVOID lpParam)
@@ -127,7 +112,7 @@ void* posix_thread_routine(void* lpParam)
 			break;
 		}
 		spllog(SPL_LOG_INFO, "test log: %llu", (LLU)time(0));
-		SPL_Sleep(5);
+		spl_sleep(1);
 	}
 	return 0;
 }

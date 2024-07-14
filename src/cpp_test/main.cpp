@@ -4,14 +4,14 @@
 #include <string.h>
 #include <time.h>
 #ifndef UNIX_LINUX
-	#include <Windows.h>
+
+#include <Windows.h>
 	DWORD WINAPI win32_thread_routine(LPVOID lpParam);
 #else
-#	include <unistd.h>
+	#include <unistd.h>
 	#include <pthread.h>
-	void *posix_thread_routine(void* lpParam);
+	void* posix_thread_routine(void* lpParam);
 #endif // !UNIX_LINUX
-
 
 void dotest();
 void* main_mtx = 0;
@@ -37,15 +37,16 @@ int get_off_process() {
 }
 int number = 2;
 int main(int argc, char* argv[]) {
+	char pathcfg[1024];
+	char* path = (char*)"simplelog.cfg";
+	char nowfmt[64];
 	int n = 0, ret = 0, i = 0;
 	if (argc > 1) {
 		n = sscanf(argv[1], "%d", &number);
 	}
 	main_mtx = spl_mutex_create();
 	spl_console_log("Main thread.\n");
-	char pathcfg[1024];
-	char* path = (char *)"simplelog.cfg";
-	char nowfmt[64];
+
 	snprintf(pathcfg, 1024, path);
 	n = strlen(pathcfg);
 	for (i = 0; i < n; ++i) {
@@ -53,24 +54,20 @@ int main(int argc, char* argv[]) {
 			pathcfg[i] = '/';
 		}
 	}
+	// Init log with "pathcfg" path of file, after starting well, ready to use.
 	ret = spl_init_log(pathcfg);
 	if (ret) {
 		spl_console_log("spl_init_log ret: %d", ret);
 		exit(1);
 	}
-	spl_fmt_now(nowfmt, 64);
-	spllog(SPL_LOG_INFO, "%s", "\n<<-->>\n");
 	n = 0;
 	dotest();
 	while (1) {
 		FILE* fp = 0;
-#ifndef UNIX_LINUX
-		Sleep(10 * 1000);
-#else
-		sleep(10);
-#endif
 		
-		spllog(SPL_LOG_DEBUG, "%s", "\n<<-->>\n");
+		spl_sleep(10);
+		
+		spllog(SPL_LOG_DEBUG, "%s", "\n Looping for waiting trigger.\n");
 		fp = fopen("trigger.txt", "r");
 		if (fp) {
 			fclose(fp);
@@ -78,17 +75,11 @@ int main(int argc, char* argv[]) {
 		}
 
 	}
-	spllog(SPL_LOG_INFO, "%s", "\n<<--->>\n");
-	
+	spllog(SPL_LOG_INFO, "%s", "\nset_off_process.\n");
 	set_off_process(1);
-#ifndef UNIX_LINUX
-	Sleep(1000);
-#else
-	sleep(1);
-#endif
-	spl_console_log("--Main close--\n");
+	spl_sleep(1);
+	spl_console_log("Main close: spl_finish_log.\n");
 	spl_finish_log();
-	
 	return EXIT_SUCCESS;
 }
 void dotest() {
@@ -107,11 +98,7 @@ void dotest() {
 	}
 #endif
 }
-#ifndef UNIX_LINUX
-#define SPL_Sleep(__k__)				Sleep((__k__) * 1000)
-#else
-#define SPL_Sleep(__k__)				sleep(__k__)
-#endif
+
 
 #ifndef UNIX_LINUX
 DWORD WINAPI win32_thread_routine(LPVOID lpParam) {
@@ -125,7 +112,7 @@ void* posix_thread_routine(void* lpParam) {
 			break;
 		}
 		spllog(SPL_LOG_INFO, "test log: %llu", (LLU)time(0));
-		SPL_Sleep(5);
+		spl_sleep(1);
 	}
 	return 0;
 }
