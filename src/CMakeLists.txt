@@ -3,7 +3,7 @@ project(simplelog_project)
 set(SOURCE_LIB_FILES simplelog.c simplelog.h simplelog_config.h)
 set(SOURCE_BIN_FILES c_test/main.c)
 set(SOURCE_BINCPP_FILES cpp_test/main.cpp)
-set(SOURCE_BINCPP_FILES_DIRECT cpp_test_direct/main.cpp simplelog.c simplelog.h simplelog_config.h)
+set(SOURCE_BINCPP_FILES_DIRECT cpp_test/main.cpp simplelog.c simplelog.h simplelog_config.h)
 
 # Add executable target with source files listed in SOURCE_FILES variable
 

@@ -1,3 +1,13 @@
+//================================================================================================================
+// Email:														
+//		<nguyenthaithuanalg@gmail.com>
+// Date:														
+//		<2024-July-14>
+// The lasted modified date:									
+//		<2024-July-14>
+// Decription:													
+//		The (only) main header file to export 3 APIs: spl_init_log, spllog, spl_finish_log.
+//===============================================================================================================
 #ifndef ___SIMPLE_LOG__
 #define ___SIMPLE_LOG__
 #include <stdio.h>
@@ -52,7 +62,7 @@ extern "C" {
 		SPL_LOG_OPEN1_FILE_ERROR,
 		SPL_LOG_CLOSE_FILE_ERROR,
 		SPL_LOG_SEM_NULL_ERROR,
-		SPL_LOG_FILE_SIZE_ERROR,
+		SPL_LOG_ROT_SIZE_ERROR,
 		SPL_LOG_MEM_FILE_MALLOC_ERROR,
 		SPL_LOG_CHECK_FOLDER_ERROR,
 		SPL_LOG_CHECK_FOLDER_YEAR_ERROR,
@@ -140,6 +150,10 @@ DLL_API_SIMPLE_LOG char *
 	spl_get_buf(int* n, int** ppl);
 DLL_API_SIMPLE_LOG 
 	void* spl_mutex_create();
+DLL_API_SIMPLE_LOG
+	void spl_sleep(unsigned  int);
+DLL_API_SIMPLE_LOG
+	int spl_standardize_path(char* fname);
 
 #ifdef __cplusplus
 }

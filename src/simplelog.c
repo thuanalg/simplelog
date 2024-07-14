@@ -1,3 +1,13 @@
+//================================================================================================================
+// Email:														
+//		<nguyenthaithuanalg@gmail.com>
+// Date:														
+//		<2024-July-14>
+// The lasted modified date:									
+//		<2024-July-14>
+// Decription:													
+//		The (only) main file to implement simple log.
+//===============================================================================================================
 #include "simplelog.h"
 #include <stdio.h>
 #include <string.h>
@@ -21,29 +31,44 @@
 //========================================================================================
 
 #define spl_malloc(__nn__, __obj__) { (__obj__) = malloc(__nn__); if(__obj__) \
-{spl_console_log("Malloc: 0x%p\n", (__obj__)); memset((__obj__), 0, (__nn__));} \
-else {spl_console_log("Malloc: error.\n");}} 
+	{spl_console_log("Malloc: 0x%p\n", (__obj__)); memset((__obj__), 0, (__nn__));} \
+	else {spl_console_log("Malloc: error.\n");}} 
 
-#define spl_free(__obj__) { spl_console_log("Free: 0x:%p.\n", (__obj__)); free(__obj__); ; (__obj__) = 0;} 
+#define spl_free(__obj__) \
+	{ spl_console_log("Free: 0x:%p.\n", (__obj__)); free(__obj__); ; (__obj__) = 0;} 
 
-#define FFCLOSE(fp, __n)	{ (__n) = fclose(fp); if(!__n) { (fp) = 0;} ;spl_console_log("Close FILE error code: %d, %s.\n", (__n), (__n) ? "FAILED": "DONE"); }
+#define FFCLOSE(fp, __n) \
+	{ (__n) = fclose(fp); if(!__n) { (fp) = 0;} ;spl_console_log("Close FILE error code: %d, %s.\n", (__n), (__n) ? "FAILED": "DONE"); }
+
 #ifndef UNIX_LINUX
-	#define SPL_CloseHandle(__obj) { int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
+	#define SPL_CloseHandle(__obj) \
+		{ int bl = CloseHandle((__obj)); spl_console_log("CloseHandle %s", bl ? "DONE": "ERROR");}
 #else
-	#define SPL_sem_wait(__obj) 							sem_wait((sem_t*)(__obj))
-	#define SPL_sem_post(__obj) 							sem_post((sem_t*)(__obj))
-	#define SPL_sem_destroy(__obj, __err) 					{ (__err) = sem_destroy((sem_t*)(__obj)); if((__err)) spl_console_log("sem_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE")}
-	#define SPL_pthread_mutex_destroy(__obj, __err)			{ (__err) = pthread_mutex_destroy((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
-	#define SPL_pthread_mutex_lock(__obj, __err) 			{ (__err) = pthread_mutex_lock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_lock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
-	#define SPL_pthread_mutex_unlock(__obj, __err) 			{ (__err) = pthread_mutex_unlock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_unlock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_sem_wait(__obj) \
+		sem_wait((sem_t*)(__obj))
+	#define SPL_sem_post(__obj) \
+		sem_post((sem_t*)(__obj))
+	#define SPL_sem_destroy(__obj, __err) \
+		{ (__err) = sem_destroy((sem_t*)(__obj)); if((__err)) spl_console_log("sem_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE")}
+	#define SPL_pthread_mutex_destroy(__obj, __err) \
+		{ (__err) = pthread_mutex_destroy((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_destroy errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_pthread_mutex_lock(__obj, __err) \
+		{ (__err) = pthread_mutex_lock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_lock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
+	#define SPL_pthread_mutex_unlock(__obj, __err) \
+		{ (__err) = pthread_mutex_unlock((pthread_mutex_t*)(__obj)); if((__err)) spl_console_log("pthread_mutex_unlock errcode: %d. %s\n", (__err), (__err) ? "FALIED": "DONE");}
 #endif
 //========================================================================================
 
-#define				SPLOG_PATHFOLDR					"pathfoder="
-#define				SPLOG_LEVEL						"level="
-#define				SPLOG_BUFF_SIZE					"buffsize="
-#define				SPLOG_FILE_SIZE					"filesize="
-#define				SPLOG_END_CFG					"end_configuring="
+#define	SPLOG_PATHFOLDR \
+	"pathfoder="
+#define	SPLOG_LEVEL \
+	"level="
+#define	SPLOG_BUFF_SIZE \
+	"buffsize="
+#define	SPLOG_ROT_SIZE \
+	"rotation_size="
+#define	SPLOG_END_CFG \
+	"end_configuring="
 
 #define				SPL_TEXT_UNKNOWN				"U"
 #define				SPL_TEXT_DEBUG					"D"
@@ -53,64 +78,108 @@ else {spl_console_log("Malloc: error.\n");}}
 #define				SPL_TEXT_FATAL					"F"
 //========================================================================================
 
-typedef struct __GENERIC_DTA__ {
-	int			total;		//Total size
-	int			pc;			//Point to the current
-	int			pl;			//Point to the last
-	char		data[0];	//Generic data
+typedef 
+struct __GENERIC_DATA__ {
+	int	
+		total;	 
+		//Total size
+	int	
+		pc;		 
+		//Point to the current
+	int	
+		pl;		 
+		//Point to the last
+	char
+		data[0]; 
+		//Generic data
 } generic_dta_st;
 
+#define spl_uchar			unsigned char
+#define spl_uint			unsigned int
+
 typedef struct __spl_local_time_st__ {
-	unsigned 		int 			year;
-	unsigned 		char 			month;
-	unsigned 		char 			day;
-	unsigned 		char 			hour;
-	unsigned 		char 			minute;
-	unsigned 		char 			sec;
-	unsigned 		int 			ms; //Millisecond
+	spl_uint	year;
+	spl_uchar	month;
+	spl_uchar	day;
+	spl_uchar	hour;
+	spl_uchar	minute;
+	spl_uchar	sec;
+	spl_uint	ms;						//Millisecond
 } spl_local_time_st;
 
-typedef struct __SIMPLE_LOG_ST__ {
-		int							llevel;
-		int							filesize;
-		int							index;
-		char						folder[1024];
-		char						off; //Must be sync
-
-		void*						mtx; //Need to close handle
-		void*						mtx_off; //Need to close handle
-		void*						sem_rwfile; //Need to close handle
-		void*						sem_off; //Need to close handle
-
-		spl_local_time_st*			lc_time; //Need to sync, free
-		FILE*						fp; //Need to close
-
-		generic_dta_st*				buf; //Must be sync, free
-	} SIMPLE_LOG_ST;
+typedef 
+struct __SIMPLE_LOG_ST__ {
+	int	
+		llevel;
+	int
+		filesize;
+	int
+		index;
+	char
+		folder[1024];
+	char
+		off;					
+		//Must be sync
+	void*
+		mtx;					
+		//mtx: Need to close handle
+	void*
+		mtx_off;				
+		//mtx_off: Need to close handle
+	void*
+		sem_rwfile;				
+		//sem_rwfile: Need to close handle
+	void*
+		sem_off;				
+		//sem_off: Need to close handle
+	spl_local_time_st*
+		lc_time;				
+		//lc_time: Need to sync, free
+	FILE*
+		fp;						
+		//fp: Need to close
+	generic_dta_st*
+		buf;
+		//buf: Must be sync, free
+} SIMPLE_LOG_ST;
 
 
 ////========================================================================================
-static const char*				__splog_pathfolder[]		= { SPLOG_PATHFOLDR, 
-																SPLOG_LEVEL, 
-																SPLOG_BUFF_SIZE, 
-																SPLOG_FILE_SIZE, 
-																SPLOG_END_CFG,0 };
-static	SIMPLE_LOG_ST			__simple_log_static__;;
-
-static int				spl_init_log_parse(char* buff, char* key, char *);
-static void*			spl_sem_create(int ini);
-static int				spl_verify_folder(char* folder);
-static int				spl_simple_log_thread(SIMPLE_LOG_ST* t);
-static int				spl_gen_file(SIMPLE_LOG_ST* t, int *n, int limit, int *);
-static int				spl_get_fname_now(char* name);
-static int				spl_get_fname_now(char* name);
-static int				spl_standardize_path(char* fname);
-static int				spl_folder_sup(char* folder, spl_local_time_st* lctime, char *year_month);
-static int				spl_local_time_now(spl_local_time_st*st_time);
+static const char*
+	__splog_pathfolder[] = { 
+		SPLOG_PATHFOLDR, 
+		SPLOG_LEVEL, 
+		SPLOG_BUFF_SIZE, 
+		SPLOG_ROT_SIZE, 
+		SPLOG_END_CFG,
+		0 
+};
+static	SIMPLE_LOG_ST
+	__simple_log_static__;;
+static int	
+	spl_init_log_parse(char* buff, char* key, char *);
+static void*
+	spl_sem_create(int ini);
+static int	
+	spl_verify_folder(char* folder);
+static int	
+	spl_simple_log_thread(SIMPLE_LOG_ST* t);
+static int	
+	spl_gen_file(SIMPLE_LOG_ST* t, int *n, int limit, int *);
+static int	
+	spl_get_fname_now(char* name);
+static int	
+	spl_get_fname_now(char* name);
+static int	
+	spl_folder_sup(char* folder, spl_local_time_st* lctime, char *year_month);
+static int	
+	spl_local_time_now(spl_local_time_st*st_time);
 #ifndef UNIX_LINUX
-static DWORD WINAPI		spl_written_thread_routine(LPVOID lpParam);
+	static DWORD WINAPI
+		spl_written_thread_routine(LPVOID lpParam);
 #else
-static void*			spl_written_thread_routine(void*);
+	static void*
+		spl_written_thread_routine(void*);
 #endif
 //========================================================================================
 int spl_local_time_now(spl_local_time_st*stt) {
@@ -248,12 +317,12 @@ int	spl_init_log_parse(char* buff, char *key, char *isEnd) {
 			__simple_log_static__.buf->total = n;
 			break;
 		}
-		if (strcmp(key, SPLOG_FILE_SIZE) == 0) {
+		if (strcmp(key, SPLOG_ROT_SIZE) == 0) {
 			int n = 0;
 			int sz = 0;
 			sz = sscanf(buff, "%d", &n);
 			if (n < 1) {
-				ret = SPL_LOG_FILE_SIZE_ERROR;
+				ret = SPL_LOG_ROT_SIZE_ERROR;
 				break;
 			}
 			__simple_log_static__.filesize = n;
@@ -504,14 +573,14 @@ void* spl_written_thread_routine(void* lpParam)
 #endif
 {	
 	SIMPLE_LOG_ST* t = (SIMPLE_LOG_ST*)lpParam;
-	int ret = 0;
-	int off = 0;
-	int ssfflush = 0;
-	time_t tttime = 0;
-	time_t tnnow;
-	tnnow = time(0);
-	int n = 0;
-	int sz = 0;
+	int ret = 0, off = 0, n = 0, sz = 0;
+	//int off = 0;
+	//int ssfflush = 0;
+	//time_t tttime = 0;
+	//time_t tnnow;
+	//tnnow = time(0);
+	//int n = 0;
+	//int sz = 0;
 	do {		
 		if (!t) {
 			exit(1);
@@ -550,24 +619,25 @@ void* spl_written_thread_routine(void* lpParam)
 					n += k;
 					sz += k;
 					t->buf->pl = t->buf->pc = 0;
-					if (t->buf->total < (n + 1000)) {
-						ssfflush = 1;
-					}
+					//if (t->buf->total < (n + 1000)) {
+					//	ssfflush = 1;
+					//}
 				}
 			} while (0);
 			spl_mutex_unlock(t->mtx);
-			if (!tttime) {
-				tttime = tnnow;
-				ssfflush = 1;
-			}
-			if (tnnow > tttime) {
-				tttime = tnnow;
-				ssfflush = 1;
-			}
-			if (ssfflush) {
-				fflush(t->fp);
-				ssfflush = 0;
-			}
+			fflush(t->fp);
+			//if (!tttime) {
+			//	tttime = tnnow;
+			//	ssfflush = 1;
+			//}
+			//if (tnnow > tttime) {
+			//	tttime = tnnow;
+			//	ssfflush = 1;
+			//}
+			//if (ssfflush) {
+			//	fflush(t->fp);
+			//	ssfflush = 0;
+			//}
 		}
 		if (t->fp) {
 			int werr = 0;
@@ -583,6 +653,8 @@ void* spl_written_thread_routine(void* lpParam)
 			spl_mutex_unlock(t->mtx);
 		}
 	} while (0);
+	
+	// Send a signal to the waiting thread.
 	spl_rel_sem(__simple_log_static__.sem_off);
 	return 0;
 }
@@ -651,14 +723,11 @@ int spl_fmt_now(char* fmtt, int len) {
 				pre_tnow = _tnow;
 			spl_mutex_unlock(__simple_log_static__.mtx_off);
 		} while (0);
-		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
+
 		n = snprintf(buff, 20, "%u-%0.2u-%0.2u", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
-
-		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
 		n = snprintf(buff1, 20, "%0.2u:%0.2u:%0.2u", stt.hour, stt.minute, stt.sec);
-
 		n = snprintf(fmtt, len, "%s %s.%.3u (+%0.7llu)", buff, buff1, (unsigned int)stt.ms, _delta);
-		//fprintf(stdout, "n: %d.\n\n", n);
+
 	} while (0);
 	return ret;
 }
@@ -680,19 +749,13 @@ int spl_fmmt_now(char* fmtt, int len) {
 			break;
 		}
 		
-		//SYSTEMTIME st;
-		
 		memset(buff, 0, 20);
 		memset(buff1, 0, 20);
-		//memset(&st, 0, sizeof(st));
-		//GetSystemTime(&st);
-		//n = GetDateFormatA(LOCALE_CUSTOM_DEFAULT, LOCALE_USE_CP_ACP, 0, "yyyy-MM-dd", buff, 20);
+
 		n = snprintf(buff, 20, "%0.4d-%0.2d-%0.2d", stt.year + YEAR_PADDING, stt.month + MONTH_PADDING, stt.day);
-
-		//n = GetTimeFormatA(LOCALE_CUSTOM_DEFAULT, TIME_FORCE24HOURFORMAT, 0, "HH:mm:ss", buff1, 20);
 		n = snprintf(buff1, 20, "%0.2d:%0.2d:%0.2d", stt.hour, stt.minute, stt.sec);
-
 		n = snprintf(fmtt, len, "%s %s.%.3d", buff, buff1, (int)stt.ms);
+
 	} while (0);
 	return ret;
 }
@@ -702,8 +765,6 @@ int spl_fmmt_now(char* fmtt, int len) {
 int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 	int ret = 0;
 	spl_local_time_st lt,* plt = 0;;
-	//GetLocalTime(&lt);
-	
 	int renew = 1;
 	char path[1024];
 	char fmt_file_name[64];
@@ -831,7 +892,6 @@ LLU	spl_get_threadid() {
 }
 //========================================================================================
 int spl_rel_sem(void *sem) {
-//int sem_post(sem_t *sem);
 	int ret = 0;
 	do {
 		if (!sem) {
@@ -882,8 +942,7 @@ const char* spl_get_text(int lev) {
 }
 //========================================================================================
 int spl_finish_log() {
-	int ret = 0; 
-	int err = 0;
+	int ret = 0, err = 0; 
 	spl_set_off(1);
 #ifndef UNIX_LINUX
 	SPL_CloseHandle(__simple_log_static__.mtx);
@@ -917,9 +976,7 @@ char* spl_get_buf(int* n, int** ppl) {
 //========================================================================================
 //https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createdirectorya
 int spl_folder_sup(char* folder, spl_local_time_st* lctime, char* year_month) {
-	int ret = 0;
-	int result = 0;
-	//char tmp[1024];
+	int ret = 0, result = 0;
 	char path[1024];
 	memset(path, 0, sizeof(path));
 	
@@ -1021,5 +1078,13 @@ int	spl_standardize_path(char* fname) {
 		++i;
 	}
 	return ret;
+}
+//========================================================================================
+void spl_sleep(unsigned int sec) {
+#ifndef UNIX_LINUX
+	Sleep( ((DWORD)(sec)) * 1000);
+#else
+	sleep(sec);
+#endif // !UNIX_LINUX
 }
 //========================================================================================
