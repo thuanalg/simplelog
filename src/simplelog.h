@@ -1,3 +1,4 @@
+/*
 //================================================================================================================
 // Email:														
 //		<nguyenthaithuanalg@gmail.com> - Nguyễn Thái Thuận
@@ -8,6 +9,7 @@
 // Decription:													
 //		The (only) main header file to export 3 APIs: [spl_init_log, spllog, spl_finish_log].
 //===============================================================================================================
+*/
 #ifndef ___SIMPLE_LOG__
 #define ___SIMPLE_LOG__
 #include <stdio.h>
@@ -18,6 +20,12 @@ extern "C" {
 #endif
 
 #define LLU				unsigned long long
+
+#define					SPL_LOG_DEBUG					0
+#define					SPL_LOG_INFO					70
+#define					SPL_LOG_WARNING					80
+#define					SPL_LOG_ERROR					90
+#define					SPL_LOG_FATAL					100
 
 #ifndef  UNIX_LINUX
 	#ifndef __SIMPLE_STATIC_LOG__
@@ -31,7 +39,7 @@ extern "C" {
 	#endif
 #else
 	#define DLL_API_SIMPLE_LOG
-#endif // ! UNIX_LINUX
+#endif /*! UNIX_LINUX */ 
 
 #ifndef __SIMPLE_LOG_PLATFORM__
 	#ifndef  UNIX_LINUX
@@ -40,13 +48,13 @@ extern "C" {
 		#define				__SIMPLE_LOG_PLATFORM__							"[GNU-GCC]"
 	#endif
 	
-#endif // !__PLAT
+#endif 
 
 #ifndef __FILE_LINE_SIMPLELOG__
 	#define				__FILE_LINE_SIMPLELOG__								"[%s:%d] [threadid: %llu]"
-#endif // !__FILE_LINE_SIMPLELOG__
+#endif 
 
-	typedef enum __SPL_LOG_ERROR__ {
+	typedef enum __SPL_LOG_ERR_CODE__ {
 		SPL_NO_ERROR = 0,
 		SPL_INIT_PATH_FOLDER_EMPTY_ERROR,
 		SPL_LOG_LEVEL_ERROR,
@@ -77,7 +85,7 @@ extern "C" {
 
 
 		SPL_END_ERROR,
-	} SPL_LOG_ERROR;
+	} SPL_LOG_ERR_CODE;
 
 
 
@@ -99,22 +107,7 @@ spl_mutex_unlock(__mtx__); spl_rel_sem(spl_get_sem_rwfile());}
 
 
 
-
-
-
-
 #define spllog(__lv__, __fmtt__, ...) { if(spl_get_log_levwel() <= (__lv__) ) {__spl_log_buf__("[%s] -->> "__fmtt__, spl_get_text(__lv__), ##__VA_ARGS__);};}
-
-
-
-
-
-
-#define					SPL_LOG_DEBUG					0
-#define					SPL_LOG_INFO					70
-#define					SPL_LOG_WARNING					80
-#define					SPL_LOG_ERROR					90
-#define					SPL_LOG_FATAL					100
 
 	
 DLL_API_SIMPLE_LOG int									
