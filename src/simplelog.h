@@ -5,7 +5,7 @@
 // Date:														
 //		<2024-July-14>
 // The lasted modified date:									
-//		<2024-July-14>
+//		<2024-July-17>
 // Decription:													
 //		The (only) main header file to export 3 APIs: [spl_init_log, spllog, spl_finish_log].
 //===============================================================================================================
