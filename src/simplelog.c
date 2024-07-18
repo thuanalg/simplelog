@@ -200,7 +200,7 @@ int spl_local_time_now(spl_local_time_st*stt) {
 #ifndef UNIX_LINUX
 	SYSTEMTIME lt;
 #else
-	struct tm* lt;
+	struct tm* lt, rlt;
 	struct timespec nanosec;
 #endif
 	do {
@@ -222,11 +222,12 @@ int spl_local_time_now(spl_local_time_st*stt) {
 /* https://linux.die.net/man/3/localtime*/
 /* https://linux.die.net/man/3/clock_gettime*/
 		time_t t = time(0);
-		lt = localtime(&t);
+		lt = localtime_r(&t, &rlt);
 		if (!lt) {
 			ret = SPL_LOG_TIME_NULL_ERROR;
 			break;
 		}
+		lt = (struct tm*) &rlt;
 		/*No need freeing, 
 		//https://stackoverflow.com/questions/35031647/do-i-need-to-free-the-returned-pointer-from-localtime-function*/
 		ret = clock_gettime(CLOCK_REALTIME, &nanosec);
@@ -658,6 +659,7 @@ int spl_simple_log_thread(SIMPLE_LOG_ST* t) {
 #else
 		pthread_t idd = 0;
 		int err = 0;
+		tzset();
 		err = pthread_create(&idd, 0, spl_written_thread_routine , t);
 		if (err) {
 			ret = SPL_LOG_CREATE_THREAD_ERROR;

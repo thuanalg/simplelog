@@ -16,7 +16,7 @@
 				<ol>
 					<li>My family, friends.</li>
 					<li><b>W. Richard Steven</b> - Unix Network Programming - Volume I, II. The books bring C/C++ programming career to me.</li>
-					<li>My colluagues: Bùi Khánh Duy, Nguyễn Công Đức, ...</li>
+					<li>My colluagues: Bùi Khánh Duy, Nguyễn Công Đức, Lê Duy Cương, ...</li>
 				</ol>
 			</td>
 		</tr>
@@ -27,15 +27,16 @@
 					<li>A C/C++ log is to support multithread.</li>
 					<li>A pattern of designation of multi-thread, signaling.</li>
 					<li>Without using third party except Posix APIs, Win32 APIs.</li>
-					<li>Portable: Windows, Linux, Mac, Solaris, Android, iOs, ... </li>
+					<li>Portable: Windows, Unix-Like( Linux, Mac, Solaris, Android, iOS, ...) </li>
 					<li>Focus on simplicity.</li>
 					<li>An sample following <b>W. Richard Steven</b> Unix Network Programming - Volume II, Part 3 - Synchroniation, Chapter 7, 8, 9, 10, 11.</li>
+					<li>Fast and small.</li>
 				</ol>
 			</td>
 		</tr>		
 		</table>
 	</h2>		
-	<h2>1. Configuration and build (did test on x86_64)
+	<h2>1. Configuration and build (did test on x86_64 as below, still in progress)
 		<table>
 			<tr>
 				<th>OS</th>
@@ -50,11 +51,11 @@
 					<ol>
 						<li>Come <b>src</b> folder.</li>
 						<li>Comment the macro <b>UNIX_LINUX</b> in <b>simplelog_config.h</b></br>
-							<br><image src="image/Windows-00.png"></image>	
+							<a href="https://github.com/thuanalg/simplelog/blob/master/image/Windows-00.PNG">Image</a>
 						</li>
 						<li>Run: <b>cmake -G "Visual Studio 17 2022" -A win32 -B ../build32</b>.<br>"<b>../build32</b>" is an output folder.</li>
 						<li>Move to the output folder "../build32" to build and run test.</li>
-						<br><image src="image/win32-00.png"></image>
+							<a href="https://github.com/thuanalg/simplelog/blob/master/image/win32-00.PNG">Image</a>
 						<li>Copy <b>src/simpleplog.cfg</b> to ../build32</li>
 					</ol>
 				</td>
@@ -72,11 +73,11 @@
 					<ol>
 						<li>Come <b>src</b> folder.</li>
 						<li>Comment the macro <b>UNIX_LINUX</b> in <b>simplelog_config.h</b></br>
-							<br><image src="image/Windows-00.png"></image>
+							<a href="https://github.com/thuanalg/simplelog/blob/master/image/Windows-00.PNG">Image</a>
 						</li>
 						<li>Run: <b>cmake -G "Visual Studio 17 2022" -B ../build64</b>.<br>"<b>../build64</b>" is an output folder.</li>
 						<li>Move to the output folder "../build64" to build and run test.</li>
-						<br><image src="image/win64-00.png"></image>
+						<a href="https://github.com/thuanalg/simplelog/blob/master/image/win64-00.PNG">Image</a>
 						<li>Copy <b>src/simpleplog.cfg</b> to ../build64</li>
 					</ol>
 				</td>
@@ -92,12 +93,12 @@
 				<td>gcc/g++</td>		
 				<td>
 					<ol>
-						<li>Come to <b>src</b>, change the file.<br/><br/>
-							<image src="image/linux-00.png"></image><br/><br/>
+						<li>Come to <b>src</b>, change the file. 
+							<a href="https://github.com/thuanalg/simplelog/blob/master/image/linux-00.PNG">Image</a>
 						</li>
 						<li>Come <b>src/linux</b> folder.</li>
 						<li>Run: <b>make</b>.</li>
-						<br><image src="image/linux64-00.png"></image><br/><br/>
+						<a href="https://github.com/thuanalg/simplelog/blob/master/image/linux64-00.PNG">Image</a>
 						<li>Copy <b>src/simpleplog.cfg</b> to <b>src/linux</b>.</li>
 					</ol>
 				</td>
@@ -123,13 +124,13 @@
 			<td>Windows</td>
 			<td>
 				<ol>
-					<li>Come to the output folder.</br></br>
-						<image src="image/Windows-01.png"></image>
+					<li>Come to the output folder.</br>
+						<a href="https://github.com/thuanalg/simplelog/blob/master/image/Windows-01.PNG">Image</a>
 					</li>
 					<li>Run: <b>simple_c_example.exe <i style="color:red;">2000</i></b></li>
 					<li>Or run: <b>simple_cpp_example.exe <i style="color:red;">2000</i></b></li>
-					<li>Output:<br/><br/>
-						<image src="image/Windows-02.png"></image>
+					<li>Output:<br/>
+						<a href="https://github.com/thuanalg/simplelog/blob/master/image/Windows-02.PNG">Image</a>
 					</li>
 				</ol>
 			</td>	
@@ -142,14 +143,15 @@
 		</tr><td>Linux</td>
 			<td>
 				<ol>
-					<li>Come to the output:<br/><br/>
-						<image src="image/linux-01.png"></image>
+					<li>Come to the output:<br/>
+						<a href="https://github.com/thuanalg/simplelog/blob/master/image/linux-01.PNG">Image</a>
 					</li>
 					<li>Run: <b>./simpplelog_sample <i style="color:red;">2000</i></b>
 					</li>
 					<li>Run: <b>./simpplelog_cpp_sample <i style="color:red;">2000</i></b>
 					</li>	
-					<li>Output: <br/><br/><image src="image/linux-02.png"></image>
+					<li>Output: <br/>
+						<a href="https://github.com/thuanalg/simplelog/blob/master/image/linux-02.PNG">Image</a>
 					</li>
 				</ol>
 			</td>
@@ -179,7 +181,19 @@
 			<td>int	<i style="color:brown;">spl_init_log</i>( char *<i style="color:gray;">pathcfg</i>)</td>
 			<td>
 				<ol>
-					<li><i style="color:gray;">pathcfg</i>: The path to configuring file.<br/><br/><image src="image/config.png"></image>
+					<li><h3><i style="color:gray;">pathcfg</i>: The path to configuring file below.</h1>
+						<!--a href="https://github.com/thuanalg/simplelog/blob/master/image/config.PNG">Image</a-->
+						<div style="color:gray;"><i>## ------------------------------------------------------------------------------</i></div>
+						<div style="color:gray;"><i>#pathfoder: the folder to write log</i></div>
+						<div style="color:green;">pathfoder=log_simple</div>
+						<div style="color:gray;"><i>#level: 0-->> debug, 70: Info, 80: warning, 90: err, 100: Fatal</i></div>
+						<div style="color:green;">level=0</div>
+						<div style="color:gray;"><i>#buffsize(byte): size of memory for simple log, 1(MB)</i></div>
+						<div style="color:green;">buffsize=1000000</div>
+						<div style="color:gray;"><i>#rotation_size(byte): size of each of log files, 10(MB)</i></div>
+						<div style="color:green;">rotation_size=10000000</div>
+						<div style="color:gray;"><i>#end_configuring: Put in end of this file to read configuring file no more</i></div>
+						<div style="color:green;">end_configuring=1</div>
 					</li>
 				</ol>
 			</td>

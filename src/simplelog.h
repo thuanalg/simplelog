@@ -41,6 +41,7 @@ extern "C" {
 	#define DLL_API_SIMPLE_LOG
 #endif /*! UNIX_LINUX */ 
 
+/*
 #ifndef __SIMPLE_LOG_PLATFORM__
 	#ifndef  UNIX_LINUX
 		#define				__SIMPLE_LOG_PLATFORM__							"[WIN32_MSVC]"
@@ -51,8 +52,9 @@ extern "C" {
 #endif 
 
 #ifndef __FILE_LINE_SIMPLELOG__
-	#define				__FILE_LINE_SIMPLELOG__								"[%s:%d] [threadid: %llu]"
+	#define				__FILE_LINE_SIMPLELOG__								"[%s:%d] [thid: %llu]"
 #endif 
+*/
 
 	typedef enum __SPL_LOG_ERR_CODE__ {
 		SPL_NO_ERROR = 0,
@@ -90,7 +92,7 @@ extern "C" {
 
 
 #define spl_console_log(___fmttt___, ...)		{char buf[1024];spl_fmmt_now(buf, 1024);\
-fprintf(stdout, "[%s] "__FILE_LINE_SIMPLELOG__" "___fmttt___"\n" , buf, __FUNCTION__, __LINE__, spl_get_threadid(), ##__VA_ARGS__);}
+fprintf(stdout, "[%s] [%s:%d] [thid: %llu] "___fmttt___"\n" , buf, __FUNCTION__, __LINE__, spl_get_threadid(), ##__VA_ARGS__);}
 
 
 
