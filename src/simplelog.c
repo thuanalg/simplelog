@@ -828,12 +828,15 @@ int spl_gen_file(SIMPLE_LOG_ST* t, int *sz, int limit, int *index) {
 				break;
 			}
 			if (lt.year > plt->year) {
+				(*index) = 0;
 				break;
 			}
 			if (lt.month > plt->month) {
+				(*index) = 0;
 				break;
 			}
 			if (lt.day > plt->day) {
+				(*index) = 0;
 				break;
 			}
 			renew = 0; 
