@@ -38,5 +38,5 @@
 | Index | Name             | Description                                                                 | Thread-safe |
 |-------|------------------|-----------------------------------------------------------------------------|-------------|
 | 1     | `spl_init_log(char *pathcfg)`   		| The path to configuring file.                                               | Yes         |
-| 2     | `spllog((level, fmt, ...))`         	| Level is `SPL_LOG_DEBUG`, `SPL_LOG_INFO`, `SPL_LOG_WARNING`, `SPL_LOG_ERROR`, `SPL_LOG_FATAL` | Yes         |
+| 2     | `spllog(level, fmt, ...)`         	| Level is `SPL_LOG_DEBUG`, `SPL_LOG_INFO`, `SPL_LOG_WARNING`, `SPL_LOG_ERROR`, `SPL_LOG_FATAL` | Yes         |
 | 3     | `spl_finish_log()` 					| Finish log.                                                                 | Yes         |
