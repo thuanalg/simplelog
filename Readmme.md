@@ -6,7 +6,7 @@
 
 1. My family, friends.
 2. [**W. Richard Steven**](https://www.bing.com/search?form=SKPBOT&q=W.%20Richard%20Steven) - Unix Network Programming - Volume I, II. The books bring C/C++ programming career to me.
-3. My colleagues: Bùi Khánh Duy, Nguyễn Công Đức, Lê Duy Cương, ...
+3. My colleagues: Bùi Khánh Duy, Nguyễn Công Đức, Lê Duy Cường, ...
 
 [**Purpose:**](https://www.bing.com/search?form=SKPBOT&q=Purpose%3A)
 
