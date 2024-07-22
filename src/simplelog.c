@@ -583,7 +583,7 @@ void* spl_written_thread_routine(void* lpParam)
 #endif
 {	
 	SIMPLE_LOG_ST* t = (SIMPLE_LOG_ST*)lpParam;
-	int ret = 0, off = 0, n = 0, sz = 0;
+	int ret = 0, off = 0, sz = 0;
 	do {		
 		if (!t) {
 			exit(1);
@@ -616,9 +616,11 @@ void* spl_written_thread_routine(void* lpParam)
 				
 				if (t->buf->pl > t->buf->pc) {
 					int k = 0;
-					t->buf->data[t->buf->pl] = 0;
-					k = fprintf(t->fp, "%s", t->buf->data);
-					n += k;
+					//t->buf->data[t->buf->pl] = 0;
+					//k = fprintf(t->fp, "%s", t->buf->data);
+					//Avoid special format
+					k = (int)fwrite(t->buf->data, 1, t->buf->pl, t->fp);
+					//n += k;
 					sz += k;
 					t->buf->pl = t->buf->pc = 0;
 				}
