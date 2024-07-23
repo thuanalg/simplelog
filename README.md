@@ -30,8 +30,8 @@
 
 | OS      | Step                                                                                       | Note                                                                                          |
 |---------|--------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| Windows | Come to the output folder.<br>Run `simple_c_example.exe 2000`<br>Or run `simple_cpp_example.exe 2000` <br> https://github.com/thuanalg/simplelog/blob/master/image/Windows-02.PNG | Output 2000 is number of threads.<br>Let's assess performance of the library/sample for yourself. |
-| Linux   | Come to the output folder.<br>Run `./simpplelog_sample 2000`<br>Run `./simpplelog_cpp_sample 2000`<br> https://github.com/thuanalg/simplelog/blob/master/image/linux-02.PNG   | Output 2000 is number of threads.<br>With `simpplelog_cpp_sample`, you have to export `LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./`<br>Because `simpplelog_cpp_sample` depends on `libsimplelog.so`.<br>Let's assess performance of the library/sample for yourself. |
+| Windows | Come to the output folder.<br>Run `simple_c_example.exe 2000`<br>Or run `simple_cpp_example.exe 2000` <br> ![](image/Windows-02.PNG) | Output 2000 is number of threads.<br>Let's assess performance of the library/sample for yourself. |
+| Linux   | Come to the output folder.<br>Run `./simpplelog_sample 2000`<br>Run `./simpplelog_cpp_sample 2000`<br> ![](image/linux-02.PNG)  | Output 2000 is number of threads.<br>With `simpplelog_cpp_sample`, you have to export `LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./`<br>Because `simpplelog_cpp_sample` depends on `libsimplelog.so`.<br>Let's assess performance of the library/sample for yourself. |
 
 ## 3. APIs manual
 
